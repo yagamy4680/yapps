@@ -1,0 +1,25 @@
+{
+  "name": "yap-require-hook",
+  "author": {
+    "name": [
+      "Yagamy"
+    ],
+    "email": "yagamy@gmail.com"
+  },
+  "description": "a hook to __require__",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "main": "index",
+  "engines": {
+    "node": "0.10.x",
+    "npm": "1.4.x"
+  },
+  "dependencies": {
+    "async": "*"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {}
+}
