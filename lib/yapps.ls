@@ -1,10 +1,10 @@
-require! <[yap-simple-logger path]>
+require \source-map-support .install!
 
-yap-simple-logger.init module.parent.parent.filename
+if not String.prototype.starts-with?
+  String.prototype.starts-with = (search-string) -> return 0 == this.index-of search-string
 
 module.exports = exports =
-  init: ->
-    get-logger-currying = (name, m) --> return yap-simple-logger.get-logger name, m
-    pre = (request, parent, isMain) -> return get-logger: get-logger-currying request
-    require \yap-require-hook .install pre
+  init: (app-filename) ->
+    require \yap-require-hook .install!
+    require \yap-simple-logger .init app-filename, __filename
 
