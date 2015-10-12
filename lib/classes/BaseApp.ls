@@ -1,4 +1,4 @@
-require! <[path colors optimist extendify yap-require-hook]>
+require! <[path async colors optimist extendify eventemitter2 yap-require-hook]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 
 #
@@ -71,20 +71,34 @@ load-config = (helpers) ->
 
 
 
+class AppContext
+  (@opts) ->
+    @server = new eventemitter2.EventEmitter2 do
+      wildcard: yes
+      delimiter: \::
+      newListener: no
+      maxListeners: 20
+    return
+
+  on: -> return @server.on.apply @server, arguments
+  emit: -> return @server.emit.apply @server, arguments
+  add-listener: -> return @server.add-listener.apply @server, arguments
+
+
+
 class BaseApp
   (@name, @opts, @helpers) ->
-    @app = {}
+    @context = new AppContext opts
     @plugins = []
     @plugin_instances = []
     @helpers.ext = extendify!
 
   add-plugin: (p) -> return @plugin_instances.push p
 
-  init: ->
-    {app, name, opts, plugin_instances, plugins, helpers} = @
+  init: (done) ->
+    {context, name, opts, plugin_instances, plugins, helpers} = @
     {ext} = helpers
     config = load-config helpers
-
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
       p-name = basename
@@ -95,17 +109,31 @@ class BaseApp
         c = ext c, config[p-name] if config[p-name]?
         c = ext c, opts-overrided if opts-overrided?
         DBG "load plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
-        p.init.apply app, [c, helpers]
+        # Initialize each plugin with given options
+        p.attach.apply context, [c, helpers]
       catch error
         ERR error, "failed to load plugin"
         process.exit 2
+    return @.init-each-plugin done
 
-  get: (name) -> return @app[name]
 
-  # [todo] need to implement event-emitter2
-  #
-  on: -> return @app.on.apply @app, arguments
+  init-each-plugin: (done) ->
+    {context, plugins} = @
+    f_currying = (context, plugin, cb) -->
+      try
+        {instance} = plugin
+        return instance.init.apply context, [cb]
+      catch error
+        return cb error
+    tasks = [ f_currying context, p for p in plugins ]
+    async.series tasks, (err) ->
+      return unless done? and \function == typeof done
+      return done err if err?
+      return done!
+
+  get: (name) -> return @context[name]
+
+  on: -> return @context.on.apply @context, arguments
 
 
 module.exports = exports = BaseApp
-

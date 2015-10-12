@@ -18,7 +18,7 @@ create-application = (type, opts) ->
     DBG "create #{type} with options: #{(JSON.stringify opts).green}"
     return new app-class app-name, opts, helpers
   catch error
-    ERR error, "failed to create application #{app-type.yellow}"
+    ERR error, "failed to create application #{type.yellow}"
     return process.exit 1
 
 
