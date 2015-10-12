@@ -29,3 +29,7 @@ node_modules
 # exclude javascript sources in `lib` directory
 #
 lib/*.js
+
+# OS-specific hidden files
+#
+.DS_Store
