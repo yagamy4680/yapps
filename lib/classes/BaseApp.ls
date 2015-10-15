@@ -118,7 +118,7 @@ class BaseApp
 
 
   init-each-plugin: (done) ->
-    {context, plugins} = @
+    {context, plugins, name} = @
     f_currying = (context, plugin, cb) -->
       try
         {instance} = plugin
@@ -129,6 +129,7 @@ class BaseApp
     async.series tasks, (err) ->
       return unless done? and \function == typeof done
       return done err if err?
+      INFO "#{name.yellow} initialized."
       return done!
 
   get: (name) -> return @context[name]

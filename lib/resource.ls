@@ -60,6 +60,8 @@ if not settings.work_dir then CHECK path.resolve "."
 #   argv[0] = /opt/boxen/nodenv/versions/v0.10/bin/lsc
 #   argv[1] = /Users/yagamy/Downloads/test0.ls
 #
+#   ["node","/Users/yagamy/Works/workspaces/t2t/yapps-tt/tests/test02/index.js"]
+#
 if not settings.work_dir and process.argv[1]? then CHECK path.dirname process.argv[1]
 
 # If there is still no work_dir available to use, then terminate
@@ -104,12 +106,27 @@ resource =
   /**
    * Load configuration file from following files in order
    *   - ${config_dir}/${name}.ls
-   *   - ${config_dir}/${name}.js
    *   - ${config_dir}/${name}.json
    *
    * @param name, the name of configuration file to be loaded.
    */
   loadConfig: (name, callback) ->
+    config-ls = "#{settings.config_dir}#{path.sep}#{name}.ls"
+    config-json = "#{settings.config_dir}#{path.sep}#{name}.json"
+    try
+      text = "#{fs.readFileSync config-ls}"
+      text = require \livescript .compile text, json: yes
+      return JSON.parse text
+    catch error
+      DBG "failed to load #{config-ls}, err: #{error}"
+
+    try
+      return require config-json
+    catch error
+      DBG "failed to load #{config-json}, err: #{error}"
+      return null
+
+    /*
     pathes =
       * path: "#{settings.config_dir}#{path.sep}#{name}.ls"
         json: false
@@ -132,6 +149,7 @@ resource =
 
     DBG "cannot find config #{name}" unless ret.found
     return ret.config
+    */
 
 
 
