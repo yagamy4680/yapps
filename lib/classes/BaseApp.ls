@@ -136,5 +136,7 @@ class BaseApp
 
   on: -> return @context.on.apply @context, arguments
 
+  emit: -> return @context.emit.apply @context, arguments
+
 
 module.exports = exports = BaseApp
