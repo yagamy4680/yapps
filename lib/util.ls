@@ -25,8 +25,5 @@ util =
     return dst
 
 
-  is-empty: (obj) -> return ([k for k, v of obj]).length == 0
-
-
 
 module.exports = exports = util

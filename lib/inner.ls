@@ -17,7 +17,7 @@ create-application = (type, opts) ->
   {app-name} = module
   {util} = helpers
   app-class = if \base == type then require \./classes/BaseApp else require \./classes/WebApp
-  if util.is-empty app-class
+  if not app-class?
     ERR "the app-class [#{type}] is empty-ized"
     return process.exit 1
   else
