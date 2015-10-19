@@ -4,7 +4,7 @@ require! <[mkdirp async]>
 util =
   # Create multiple directories
   #
-  createDirectories: (dirs, callback) ->
+  create-directories: (dirs, callback) ->
     funcs = []
     createCurrying = (dir, cb) -->
       DBG "creating #{dir} ..."
@@ -18,11 +18,15 @@ util =
     async.series funcs, (err, results) -> return callback err
 
 
-  copyObject: (dst, src, fields) ->
+  copy-object: (dst, src, fields) ->
     for let f, i in fields
       if src[f]?
         dst[f] = src[f]
     return dst
+
+
+  is-empty: (obj) -> return ([k for k, v of obj]).length == 0
+
 
 
 module.exports = exports = util
