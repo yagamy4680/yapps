@@ -94,11 +94,19 @@ class WebServer
 
     # Directory for compiled assets (e.g. Livescript to Javascript)
     @_opts.js_dest_path = resource.resolveWorkPath \work, 'web/dest' unless @_opts.headless
+    @.initiate-uploader @_opts.upload_path if @_opts.express_multer? and @_opts.express_multer
 
 
   use: (name, middleware) -> return @routes[name] = middleware unless @web?
   useApi: (name, middleware) -> return @api_routes[name] = middleware unless @web?
   useWs: (name, handler) -> return @wss[name] = handler unless @web?
+
+
+  initiate-uploader: (upload-path) ->
+    require! \multer
+    return WARN "multer is empty-ized" unless multer?
+    @helpers.upload = multer dest: upload-path
+    return INFO "add multer helper"
 
 
   initiate-logger: ->
@@ -166,15 +174,6 @@ class WebServer
     @.initiate-static \fonts, resource.resolveResourcePath \assets, \fonts
 
 
-  initiate-uploader: (upload-path) ->
-    require! \multer
-    return WARN "multer is empty-ized" unless multer?
-    @helpers.upload = multer dest: upload-path
-    return INFO "add multer helper"
-    # @web.use multer dest: upload-path
-    # return INFO "use middleware: multer (for file uploading)"
-
-
   initiate-method-override: ->
     require! <[method-override]>
     return WARN "method-override is empty-ized" unless method-override?
@@ -238,7 +237,6 @@ class WebServer
     web.use body-parser.urlencoded extended: true
     DBG "use middleware: body-parser"
 
-    @.initiate-uploader upload_path if express_multer? and express_multer
     @.initiate-method-override! if express_method_overrid? and express_method_overrid
 
     if view_verbose? and view_verbose
