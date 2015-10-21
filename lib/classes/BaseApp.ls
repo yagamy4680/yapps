@@ -1,4 +1,4 @@
-require! <[path async colors optimist extendify eventemitter2 yap-require-hook]>
+require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 
 #
@@ -32,8 +32,8 @@ apply-cmd-config = (settings, type) ->
     INFO "applying #{prop} = #{config[lastName]}"
 
 
-load-config = (helpers) ->
-  {resource} = helpers
+load-config = (name, helpers) ->
+  {resource, ext} = helpers
   opt = optimist.usage 'Usage: $0'
     .alias 'c', 'config'
     .describe 'c', 'the configuration set, might be default, bbb0, ...'
@@ -67,7 +67,22 @@ load-config = (helpers) ->
   apply-cmd-config argv.i, "integer"
   apply-cmd-config argv.b, "boolean"
   apply-cmd-config argv.a, "str_array"
-  return config
+
+  return config unless handlebars?      # Don't compile handlebars template when `handlebars` is empty-ized.
+  try
+    text = JSON.stringify config, null, '  '
+    context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
+    context = ext config, context
+    template = handlebars.compile text
+    text = template context
+    console.error "generated-config:\n#{text.green}" if argv.v
+    config = global.config = JSON.parse text
+    return config
+  catch error
+    ERR error, "failed to generate config"
+    process.exit 1
+
+
 
 
 
@@ -85,6 +100,11 @@ class AppContext
   add-listener: -> return @server.add-listener.apply @server, arguments
 
 
+line-emitter-currying = (app, plugin-name, resource-name, channel-name, context, line) -->
+  evts = [\line, plugin-name, resource-name, channel-name]
+  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
+  return app.emit evts, line, src, context
+
 
 class BaseApp
   (@name, @opts, @helpers) ->
@@ -93,24 +113,26 @@ class BaseApp
     @plugin_instances = []
     @helpers.ext = extendify!
 
-  add-plugin: (p) -> return @plugin_instances.push p
 
   init: (done) ->
-    {context, name, opts, plugin_instances, plugins, helpers} = @
+    self = @
+    {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
-    config = load-config helpers
+    config = load-config name, helpers
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
       p-name = basename
       px = instance: p, name: p-name
       plugins.push px
       try
+        l = line-emitter-currying self, p-name
+        h = line-emitter-currying: l
+        h = ext h, helpers
         c = app-name: name
         c = ext c, config[p-name] if config[p-name]?
-        c = ext c, opts-overrided if opts-overrided?
         DBG "load plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
         # Initialize each plugin with given options
-        p.attach.apply context, [c, helpers]
+        p.attach.apply context, [c, h]
       catch error
         ERR error, "failed to load plugin"
         process.exit 2
@@ -137,6 +159,8 @@ class BaseApp
   on: -> return @context.on.apply @context, arguments
 
   emit: -> return @context.emit.apply @context, arguments
+
+  add-plugin: (p) -> return @plugin_instances.push p
 
 
 module.exports = exports = BaseApp
