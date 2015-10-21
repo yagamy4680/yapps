@@ -12,7 +12,6 @@ class WebApp extends BaseApp
     self = @
     super (err) ->
       return done err if err?
-      INFO "self.app = #{self.context}"
       {web} = self.context
       return web.start done
 
