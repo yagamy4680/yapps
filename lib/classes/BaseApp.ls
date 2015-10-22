@@ -102,7 +102,7 @@ class AppContext
 
 line-emitter-currying = (app, plugin-name, resource-name, channel-name, context, line) -->
   # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{line}"
-  evts = [\line, plugin-name, resource-name, channel-name]
+  evts = [plugin-name, resource-name, channel-name, \line]
   line = "#{line}"
   line = line.substring 0, line.length - 1 if line.ends-with '\n'
   line = line.substring 0, line.length - 1 if line.ends-with '\r'
@@ -128,9 +128,21 @@ class BaseApp
       p-name = basename
       px = instance: p, name: p-name
       plugins.push px
+
+      app-plugin-emitter =
+        app: context
+        name: p-name
+        emit: ->
+          {name, app} = @
+          evts = [name] ++ arguments[0]
+          args = Array.prototype.slice.call arguments, 1
+          args = [evts] ++ args
+          return app.emit.apply app, args
+
       try
+        f = app-plugin-emitter.emit.bind app-plugin-emitter
         l = line-emitter-currying self, p-name
-        h = line-emitter-currying: l
+        h = line-emitter-currying: l, plugin-emitter: f
         h = ext h, helpers
         c = app-name: name
         c = ext c, config[p-name] if config[p-name]?
