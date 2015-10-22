@@ -101,7 +101,11 @@ class AppContext
 
 
 line-emitter-currying = (app, plugin-name, resource-name, channel-name, context, line) -->
+  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{line}"
   evts = [\line, plugin-name, resource-name, channel-name]
+  line = "#{line}"
+  line = line.substring 0, line.length - 1 if line.ends-with '\n'
+  line = line.substring 0, line.length - 1 if line.ends-with '\r'
   src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
   return app.emit evts, line, src, context
 
