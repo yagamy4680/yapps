@@ -41,7 +41,12 @@ dump-generated-config = (config, text) ->
     stringColor: \yellow
     numberColor: \cyan
     defaultIndentation: 4
-  return console.error "generated configuration:\n#{text}\n"
+  xs = text.split '\n'
+  console.error "generated configration:"
+  for x in xs
+    console.error "\t#{x}"
+  console.error ""
+  # return console.error "generated configuration:\n#{text}\n"
 
 
 load-config = (name, helpers) ->
