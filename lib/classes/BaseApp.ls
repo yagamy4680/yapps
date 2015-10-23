@@ -32,6 +32,18 @@ apply-cmd-config = (settings, type) ->
     INFO "applying #{prop} = #{config[lastName]}"
 
 
+dump-generated-config = (config, text) ->
+  require! <[prettyjson]>
+  return console.error "generated configuration: \n#{text.gray}" unless prettyjson?
+  text = prettyjson.render config, do
+    keysColor: \gray
+    dashColor: \green
+    stringColor: \yellow
+    numberColor: \cyan
+    defaultIndentation: 4
+  return console.error "generated configuration:\n#{text}\n"
+
+
 load-config = (name, helpers) ->
   {resource, ext} = helpers
   opt = optimist.usage 'Usage: $0'
@@ -75,8 +87,8 @@ load-config = (name, helpers) ->
     context = ext config, context
     template = handlebars.compile text
     text = template context
-    console.error "generated-config:\n#{text.green}" if argv.v
     config = global.config = JSON.parse text
+    dump-generated-config config, text if argv.v
     return config
   catch error
     ERR error, "failed to generate config"
@@ -116,6 +128,7 @@ class BaseApp
     @plugins = []
     @plugin_instances = []
     @helpers.ext = extendify!
+    this.add-plugin require './unixsock'
 
 
   init: (done) ->
@@ -123,6 +136,9 @@ class BaseApp
     {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
     config = load-config name, helpers
+    if not config[\unixsock]?
+      config[\unixsock] = servers: system: "/tmp/yap/#{name}.system.sock"
+
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
       p-name = basename
