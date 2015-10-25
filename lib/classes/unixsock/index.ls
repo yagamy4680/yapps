@@ -25,7 +25,7 @@ class DomainSocket
     DBG "[#{name.cyan}] successfully cleanup previous domain socket" if err?
     err2 <- server.listen full-path
     return done "[#{name.cyan}] failed to create domain socket, err: #{err2}" if err2?
-    INFO "listening #{full-path.yellow}"
+    INFO "listening #{full-path.cyan}"
     return done!
 
   incoming-connection: (c) ->

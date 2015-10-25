@@ -111,7 +111,7 @@ class WebServer
 
   initiate-logger: ->
     {bunyan-logger} = @app
-    return WARN "no bunyan logger plugin" unless bunyan-logger?
+    return DBG "no bunyan logger plugin" unless bunyan-logger?
     eb = require \express-bunyan-logger
     return WARN "express-bunyan-logger is empty-ized" unless eb?
     web-middleware = eb do
@@ -204,14 +204,15 @@ class WebServer
     v.use ep! if ep?
     for let name, m of api_routes
       v.use "/#{name}", m
-      INFO "api: add #{p}/#{name}"
+      uri = "#{p}/#{name}"
+      INFO "api: add #{uri.yellow}"
     a.use "/v#{api}", v
     web.use "/api", a
 
 
   initiate-plugin-websockets: ->
     {server, _opts} = @
-    {port} = _opts
+    {port, host} = _opts
     sio = null
     sio = require \socket.io
     return WARN "socket.io is empty-ized" unless sio?
@@ -221,7 +222,8 @@ class WebServer
     for let name, handler of @wss
       s = io.of name
       s.on \connection, handler
-      INFO "add handler for ws://localhost/#{name}"
+      uri = "ws://#{host}:#{port}/#{name}"
+      INFO "ws : add #{uri.yellow}"
 
 
   start: (done) ->

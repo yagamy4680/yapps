@@ -100,7 +100,10 @@ load-config = (name, helpers) ->
     process.exit 1
 
 
-
+HOOK = (err) ->
+  {yap-baseapp-start-hook} = global
+  yap-baseapp-start-hook err if yap-baseapp-start-hook?
+  return err
 
 
 class AppContext
@@ -137,6 +140,10 @@ class BaseApp
 
 
   init: (done) ->
+    @.init-internal (err) -> return done HOOK err
+
+
+  init-internal: (done) ->
     self = @
     {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
