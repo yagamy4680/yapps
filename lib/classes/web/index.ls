@@ -1,9 +1,10 @@
-require! <[express fs http]>
+require! <[express fs http colors]>
 {elem-index, keys} = require \prelude-ls
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 error_responses = require \./web_errors
 
 composeError = (req, res, name, err = null) ->
+  require! <[handlebars]>
   if error_responses[name]?
     r = error_responses[name]
     template = handlebars.compile r.message
