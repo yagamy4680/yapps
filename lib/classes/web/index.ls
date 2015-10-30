@@ -61,6 +61,23 @@ trusted_ip_or_user = (req, res, next) ->
   return next!
 
 
+# To verify the incoming web-socket with `socketio-auth` (https://github.com/facundoolano/socketio-auth)
+#
+sio-authenticate-currying = (namespace, users, websocket, data, cb) -->
+  {username, password} = data
+  DBG "try to authenticate #{username} in namespace #{namespace.green}"
+  return cb new Error "no such user `#{username}`" unless users[username]?
+  return cb new Error "invalid secret" unless users[username] == password
+  return cb null, yes
+
+
+# After the web-socket is authenticated by `socketio-auth` (https://github.com/facundoolano/socketio-auth)
+#
+sio-post-authenticate-currying = (handler, websocket, data) -->
+  websocket.user = data.username
+  return handler websocket
+
+
 
 class WebServer
   (@opts, @sys-helpers, @app) ->
@@ -88,6 +105,7 @@ class WebServer
       express_partial_response: yes
       express_method_overrid: yes
       express_multer: yes
+      ws: {}
 
     # Replace with user's preferred options
     fields = keys @_opts
@@ -217,14 +235,33 @@ class WebServer
     sio = null
     sio = require \socket.io
     return WARN "socket.io is empty-ized" unless sio?
+    sa = require \socketio-auth
+    WARN "socketio-auth is empty-ized" unless sa?
+    INFO "_opts[ws] = #{JSON.stringify _opts}"
     io = @io = sio server
     # Register different handler for incoming web-sockets in different
     # namespace.
     for let name, handler of @wss
-      s = io.of name
-      s.on \connection, handler
       uri = "ws://#{host}:#{port}/#{name}"
-      INFO "ws : add #{uri.yellow}"
+      s = io.of name
+      if sa? and _opts.ws? and _opts.ws.namespaces? and _opts.ws.namespaces[name]? and _opts.ws.namespaces[name].users?
+        auth = sio-authenticate-currying name, _opts.ws.namespaces[name].users
+        post-auth = sio-post-authenticate-currying handler
+        INFO "#{typeof auth}, #{typeof post-auth}"
+        sa_opts = authenticate: auth, post-authenticate: post-auth
+        sa s, sa_opts
+        INFO "ws : add #{uri.yellow} (with authentication)"
+      else
+        s.on \connection, handler
+        INFO "ws : add #{uri.yellow}"
+      /*
+      sa_opts =
+        authenticate: (socket, data, callback) ->
+          INFO "incoming a connection: #{data.username}"
+          return callback null, true
+      sa s, sa_opts
+      INFO "ws : add #{uri.yellow} (with authentication always)"
+      */
 
 
   start: (done) ->
