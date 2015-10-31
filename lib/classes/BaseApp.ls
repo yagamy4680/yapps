@@ -194,9 +194,13 @@ class BaseApp
     tasks = [ f_currying context, p for p in plugins ]
     async.series tasks, (err) ->
       return unless done? and \function == typeof done
-      return done err if err?
-      INFO "#{name.yellow} initialized."
-      return done!
+      if err?
+        WARN err, "failed to init all plugins" if err?
+        process.exit 2
+      else
+        INFO "#{name.yellow} initialized."
+        return done!
+
 
   get: (name) -> return @context[name]
 
