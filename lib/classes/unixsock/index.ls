@@ -46,7 +46,7 @@ class DomainSocket
 
   write-line: (line) ->
     {connections} = @
-    INFO "line: #{line}"
+    DBG "line: #{line}"
     for c in connections
       c.write "#{line}\n"
 
