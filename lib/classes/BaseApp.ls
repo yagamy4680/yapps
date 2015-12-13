@@ -120,6 +120,15 @@ class AppContext
   add-listener: -> return @server.add-listener.apply @server, arguments
 
 
+
+data-emitter-currying = (app, plugin-name, resource-name, channel-name, context, data) -->
+  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{data.length} bytes"
+  evts = [plugin-name, resource-name, channel-name, \data]
+  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
+  app.emit evts, data, src, context
+  return data
+
+
 line-emitter-currying = (app, plugin-name, resource-name, channel-name, context, line) -->
   # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{line}"
   evts = [plugin-name, resource-name, channel-name, \line]
@@ -127,7 +136,8 @@ line-emitter-currying = (app, plugin-name, resource-name, channel-name, context,
   line = line.substring 0, line.length - 1 if line.ends-with '\n'
   line = line.substring 0, line.length - 1 if line.ends-with '\r'
   src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
-  return app.emit evts, line, src, context
+  app.emit evts, line, src, context
+  return line
 
 
 class BaseApp
@@ -136,7 +146,7 @@ class BaseApp
     @plugins = []
     @plugin_instances = []
     @helpers.ext = extendify!
-    this.add-plugin require './unixsock'
+    this.add-plugin require './sock'
 
 
   init: (done) ->
@@ -148,8 +158,11 @@ class BaseApp
     {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
     config = load-config name, helpers
-    if not config[\unixsock]?
-      config[\unixsock] = servers: system: "/tmp/yap/#{name}.system.sock"
+    sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
+    if not config[\sock]?
+      config[\sock] = servers: system: sys-sock
+    else if not config[\sock][\servers][\system]?
+      config[\sock][\servers][\system] = sys-sock
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
@@ -170,7 +183,8 @@ class BaseApp
       try
         f = app-plugin-emitter.emit.bind app-plugin-emitter
         l = line-emitter-currying self, p-name
-        h = line-emitter-currying: l, plugin-emitter: f
+        d = data-emitter-currying self, p-name
+        h = line-emitter-currying: l, data-emitter-currying: d, plugin-emitter: f
         h = ext h, helpers
         c = app-name: name
         c = ext c, config[p-name] if config[p-name]?
