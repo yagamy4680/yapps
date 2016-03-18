@@ -56,6 +56,16 @@ class SocketServer
     t = through write, end
     r = byline.create-stream t
     r.on \data, l
+    c.on \error, (err) ->
+      idx = connections |> elem-index c
+      ERR err, "#{name.cyan} unexpected error for #{idx}"
+      console.error err
+      try
+        c.end!
+      catch error
+        ERR error, "#{name.cyan} unexpected error for #{idx} when closing it"
+        console.error error
+        connections.splice idx, 1 if idx?
     c.on \end, ->
       idx = connections |> elem-index c
       connections.splice idx, 1 if idx?
@@ -91,6 +101,10 @@ class Manager
     return unless s?
     return s.write data
 
+  get-connections: (name) ->
+    s = @socket-map[name]
+    return null unless s?
+    return s.connections
 
 
 module.exports = exports =
