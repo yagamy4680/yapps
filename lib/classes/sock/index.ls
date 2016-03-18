@@ -58,18 +58,14 @@ class SocketServer
     r.on \data, l
     c.on \error, (err) ->
       idx = connections |> elem-index c
-      ERR err, "#{name.cyan} unexpected error for #{idx}"
-      console.error err
-      try
-        c.end!
-      catch error
-        ERR error, "#{name.cyan} unexpected error for #{idx} when closing it"
-        console.error error
-        connections.splice idx, 1 if idx?
+      ERR err, "#{name.cyan} connections[#{idx}[ throws error, remove it from connnection-list, err: #{err}"
+      connections.splice idx, 1 if idx?
+      r.removeAllListeners \data
     c.on \end, ->
       idx = connections |> elem-index c
+      INFO "#{name.cyan} #{idx}(#{remote-address}) disconnected"
       connections.splice idx, 1 if idx?
-      DBG "#{name.cyan} #{remote-address} disconnected"
+      r.removeAllListeners \data
     c.pipe t
     return
 
