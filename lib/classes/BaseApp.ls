@@ -93,11 +93,18 @@ load-config = (name, helpers) ->
   return config if argv.d
   return config unless deploy-config?
 
+
   # When the mode is not deployment mode, the `config` shall be merged
-  # by using itself context and APP_NAME / APP_DIR / WORK_DIR
+  # by using itself context and APP_NAME / APP_DIR / WORK_DIR.
   #
+  # The deployment environment is also decided by the environment variable: BOARD_PROFILE_ENV and YAPPS_ENV
+  #
+  {BOARD_PROFILE_ENV, YAPPS_ENV} = process.env
+  deploy-environment = \development
+  deploy-environment = YAPPS_ENV if YAPPS_ENV? and YAPPS_ENV in <[production testing development]>
+  deploy-environment = BOARD_PROFILE_ENV if BOARD_PROFILE_ENV? and BOARD_PROFILE_ENV in <[production testing development]>
   context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
-  {error, output} = deploy-config "production", json, text, context
+  {error, output} = deploy-config deploy-environment, json, text, context
   return output unless error?
   ERR error, "failed to generate config with deployment option"
   return process.exit 1
