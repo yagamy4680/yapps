@@ -116,12 +116,15 @@ resource =
     try
       text = "#{fs.readFileSync config-ls}"
       text = require \livescript .compile text, json: yes
-      return JSON.parse text
+      json = JSON.parse text
+      return json: json, text: text, source: yes
     catch error
       DBG "failed to load #{config-ls}, err: #{error}"
 
     try
-      return require config-json
+      text = "#{fs.readFileSync config-json}"
+      json = JSON.parse text
+      return json: json, text: text, source: no
     catch error
       DBG "failed to load #{config-json}, err: #{error}"
       return null

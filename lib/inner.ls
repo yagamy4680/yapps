@@ -6,6 +6,7 @@ helpers =
   resource: require \./resource
   timer: require \./timer
   async-executer: require \./async-executer
+  deploy-config: require \./deploy-config
 
 
 find-app-name = (filename) ->

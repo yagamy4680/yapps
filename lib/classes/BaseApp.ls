@@ -50,11 +50,14 @@ dump-generated-config = (config, text) ->
 
 
 load-config = (name, helpers) ->
-  {resource, ext} = helpers
+  {resource, ext, deploy-config} = helpers
   opt = optimist.usage 'Usage: $0'
     .alias 'c', 'config'
     .describe 'c', 'the configuration set, might be default, bbb0, ...'
     .default 'c', 'default'
+    .alias 'd', 'deployment'
+    .describe 'd', 'deployment mode or not'
+    .default 'd', no
     .alias 'b', 'config_bool'
     .describe 'b', 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.secure=false"'
     .alias 's', 'config_string'
@@ -77,7 +80,9 @@ load-config = (name, helpers) ->
     process.exit 0
 
   # Load configuration from $WORK_DIR/config/xxx.json, or .ls
-  config = global.config = resource.loadConfig argv.config
+  #
+  {json, text, source} = resource.loadConfig argv.config
+  config = global.config = json
   return process.exit 1 unless config?
 
   apply-cmd-config argv.s, "string"
@@ -85,19 +90,18 @@ load-config = (name, helpers) ->
   apply-cmd-config argv.b, "boolean"
   apply-cmd-config argv.a, "str_array"
 
-  return config unless handlebars?      # Don't compile handlebars template when `handlebars` is empty-ized.
-  try
-    text = JSON.stringify config, null, '  '
-    context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
-    context = ext config, context
-    template = handlebars.compile text
-    text = template context
-    config = global.config = JSON.parse text
-    dump-generated-config config, text if argv.v
-    return config
-  catch error
-    ERR error, "failed to generate config"
-    process.exit 1
+  return config if argv.d
+  return config unless deploy-config?
+
+  # When the mode is not deployment mode, the `config` shall be merged
+  # by using itself context and APP_NAME / APP_DIR / WORK_DIR
+  #
+  context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
+  {error, output} = deploy-config "production", json, text, context
+  return output unless error?
+  ERR error, "failed to generate config with deployment option"
+  return process.exit 1
+
 
 
 HOOK = (err) ->
@@ -158,6 +162,7 @@ class BaseApp
     {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
     config = load-config name, helpers
+    dump-generated-config config, (JSON.stringify config, null, ' ') if global.argv.v
     sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
     if not config[\sock]?
       config[\sock] = servers: system: sys-sock
