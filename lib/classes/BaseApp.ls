@@ -82,17 +82,17 @@ load-config = (name, helpers) ->
   # Load configuration from $WORK_DIR/config/xxx.json, or .ls
   #
   {json, text, source} = resource.loadConfig argv.config
-  config = global.config = json
-  return process.exit 1 unless config?
+  global.config = json
+  return process.exit 1 unless json?
 
   apply-cmd-config argv.s, "string"
   apply-cmd-config argv.i, "integer"
   apply-cmd-config argv.b, "boolean"
   apply-cmd-config argv.a, "str_array"
 
+  {config} = global
   return config if argv.d
   return config unless deploy-config?
-
 
   # When the mode is not deployment mode, the `config` shall be merged
   # by using itself context and APP_NAME / APP_DIR / WORK_DIR.
@@ -104,7 +104,8 @@ load-config = (name, helpers) ->
   deploy-environment = YAPPS_ENV if YAPPS_ENV? and YAPPS_ENV in <[production testing development]>
   deploy-environment = BOARD_PROFILE_ENV if BOARD_PROFILE_ENV? and BOARD_PROFILE_ENV in <[production testing development]>
   context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
-  {error, output} = deploy-config deploy-environment, json, text, context
+  text = JSON.stringify config, null, '  '
+  {error, output} = deploy-config deploy-environment, config, text, context
   return output unless error?
   ERR error, "failed to generate config with deployment option"
   return process.exit 1
