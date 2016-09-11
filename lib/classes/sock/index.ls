@@ -136,4 +136,21 @@ module.exports = exports =
       system  : 'unix://{{UNIXSOCK_DIR}}/{{APP_NAME}}.system.sock'
       data    : 'unix://{{UNIXSOCK_DIR}}/{{APP_NAME}}.data.sock'
       cmd     : 'tcp://127.0.0.1:8080'
+
+  sock:
+    servers:
+      system:
+        uri: 'unix://{{UNIXSOCK_DIR}}/{{APP_NAME}}.system.sock'
+        line: yes
+
+      data:
+        uri: 'unix://{{UNIXSOCK_DIR}}/{{APP_NAME}}.data.sock'
+        line: no
+
+      noble:
+        uri: \tcp://127.0.0.1:6011
+        line: yes
  */
+
+
+
