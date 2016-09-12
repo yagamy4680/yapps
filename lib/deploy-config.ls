@@ -34,7 +34,8 @@ TRANSFORM_BOOLEAN = (object, dir) ->
     for y in tokens
       object := object[y]
     x = object[k]
-  return object[k] = x == \true
+  return if \boolean is typeof object[k]
+  return object[k] = (x is \true)
 
 
 TRANSFORM = (env, json, text, context) ->

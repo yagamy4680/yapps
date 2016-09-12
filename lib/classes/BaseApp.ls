@@ -170,12 +170,10 @@ class BaseApp
     {context, name, opts, plugin_instances, plugins, helpers} = self
     {ext} = helpers
     config = load-config name, helpers
-    dump-generated-config config, (JSON.stringify config, null, ' ') if global.argv.v
     sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
-    if not config[\sock]?
-      config[\sock] = servers: system: sys-sock
-    else if not config[\sock][\servers][\system]?
-      config[\sock][\servers][\system] = sys-sock
+    config[\sock] = servers: system: sys-sock unless config[\sock]?
+    config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
+    dump-generated-config config, (JSON.stringify config, null, ' ')
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
