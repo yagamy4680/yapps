@@ -5,8 +5,8 @@ loggerCurrying = (executor, task_name, logger, message) -->
   # prefix = "[#{colors.gray executor.type}.#{colors.gray executor.id}.#{colors.gray task_name}]"
   # prefix = "#{executor.type}#{colors.gray '.'}#{executor.id}#{colors.gray '.'}#{task_name}"
   num = "#{executor.num}"
-  id = "#{executor.id}-#{num}"
-  prefix = "#{executor.type}[#{id.gray}].#{task_name}"
+  id = "#{executor.id}:#{num.blue}"
+  prefix = "#{executor.type}[#{id.gray}].#{task_name.gray}"
   text = "#{prefix} #{message}"
   return logger text if logger?
   return console.log text
@@ -34,12 +34,11 @@ module.exports = exports = class AsyncExecuter
     @id = if id? then id else uid!
     @num = 0
 
-  series: (tasks, callback) ->
-    new_funcs = []
-    for let t, i in tasks
-      func = runTaskCurrying @, @context, @logger, t.name, t.func
-      new_funcs.push func
 
-    end = seriesEndCurrying @, callback
-    async.series new_funcs, end
-    @num = @num + 1
+  series: (tasks, callback) ->
+    {context, logger, num} = self = @
+    self.num = num + 1
+    new_funcs = [ (runTaskCurrying self, context, logger, t.name, t.func) for let t, i in tasks ]
+    end = seriesEndCurrying self, callback
+    return async.series new_funcs, end
+

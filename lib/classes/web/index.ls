@@ -247,7 +247,7 @@ class WebServer
       if sa? and _opts.ws? and _opts.ws.namespaces? and _opts.ws.namespaces[name]? and _opts.ws.namespaces[name].users?
         auth = sio-authenticate-currying name, _opts.ws.namespaces[name].users
         post-auth = sio-post-authenticate-currying handler
-        INFO "#{typeof auth}, #{typeof post-auth}"
+        # INFO "#{typeof auth}, #{typeof post-auth}"
         sa_opts = authenticate: auth, post-authenticate: post-auth
         sa s, sa_opts
         INFO "ws : add #{uri.yellow} (with authentication)"
