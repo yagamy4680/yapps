@@ -14,7 +14,7 @@ module.exports = exports = class WssClient
     ws.on \connect, -> return self.at-internal-connected!
     ws.on \disconnect, -> return self.at-internal-disconnected!
     ws.on EVENT_READY, -> return self.at-internal-ready!
-    ws.on EVENT_CONFIGURED, -> return self.at-internal-configured!
+    ws.on EVENT_CONFIGURED, (p) -> return self.at-internal-configured p
     ws.on EVENT_DATA, (p) -> return self.at-ws-data p
 
 
@@ -34,8 +34,11 @@ module.exports = exports = class WssClient
     return @.at-connected @ws
 
 
-  at-internal-configured: ->
-    return @.at-configured @ws
+  at-internal-configured: (p) ->
+    {ws} = self = @
+    {index, code, err} = p
+    return self.at-configured ws, code, err
+
 
   at-internal-disconnected: ->
     return @.at-disconnected @ws
@@ -48,7 +51,7 @@ module.exports = exports = class WssClient
     return WARN "missing `category` in data event" unless category?
     return WARN "missing `items` in data event" unless items?
     name = "process_data_#{category}"
-    INFO "data[#{category}]: #{JSON.stringify items} (#{JSON.stringify args})" if verbose
+    # INFO "data[#{category}]: #{JSON.stringify items} (#{JSON.stringify args})" if verbose
     args = [] unless args?
     args = [args] unless Array.isArray args
     items = [items] unless Array.isArray items
@@ -63,5 +66,5 @@ module.exports = exports = class WssClient
   #
   at-connected: (ws) -> return
   at-disconnected: (ws) -> return
-  at-configured: (ws) -> return
+  at-configured: (ws, code, err) -> return
 

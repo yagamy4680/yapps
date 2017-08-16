@@ -1,4 +1,6 @@
 ##
+# WebSocket Service (helper classes)
+#
 # ---------------------------------------------------------------------
 #
 #
@@ -99,7 +101,10 @@ class WsHandler
 
 
   at-ws-disconnect: ->
-    @.DEBUG "at-ws-disconnect"
+    {ws} = self = @
+    self.DEBUG "at-ws-disconnect"
+    ws.removeAllListeners REQ_CONFIGURE
+    ws.removeAllListeners EVENT_DATA
     return
 
 
@@ -234,6 +239,7 @@ class WsManager
   at-ws-disconnect: (id, ws, handler) ->
     {name, verbose} = self = @
     INFO "#{name.green}: disconnect for #{id.gray} from #{ws.conn.remoteAddress.magenta}" if verbose
+    ws.removeAllListeners \disconnect
     try
       handler.at-ws-disconnect!
     catch error
@@ -268,8 +274,6 @@ class WsManager
     self.token = token
     self.token = (uid 6).to-upper-case! unless self.token?
     INFO "#{name.green}: use new token #{self.token.yellow} for #{self.token-expires}s"
-
-
 
 
 
