@@ -188,22 +188,19 @@ class WsHandler
   # CLIENT-MUST-IMPLEMENT!!
   #
   process_configure: (opts, done) -> return
-
+  # process_data_[category1]: (items, ...) -> return
+  # process_data_[category2]: (items, ...) -> return
+  # process_data_[category3]: (items, ...) -> return
 
 
 
 class WsManager
-  (@app, @name, @opts, @handler-clazz, @ctx) ->
+  (@wss, @app, @name, @opts, @handler-clazz, @ctx) ->
     self = @
     self.handlers = {}
     self.verbose = opts.verbose
     self.verbose = no unless self.verbose?
     self.index = 0
-    self.token = null
-    self.token-expires = 0
-    self.generate-service-token TOKEN_DEFAULT_EXPIRES
-    f = -> return self.at-timeout!
-    self.timer = setInterval f, 1000ms
 
 
   register: (done) ->
@@ -247,19 +244,37 @@ class WsManager
     return self.remove id
 
 
+  get-service-token: ->
+    return @wss.get-service-token!
+
+
+
+
+
+class Wss
+  (@opts) ->
+    self = @
+    self.service-name = \wss
+    self.token = null
+    self.token-expires = 0
+    self.generate-service-token!
+    self.managers = {}
+    f = -> return self.at-timeout!
+    self.timer = setInterval f, 1000ms
+
   at-timeout: ->
-    {name} = self = @
+    {service-name, token} = self = @
     return if self.token-expires <= 0
     self.token-expires = self.token-expires - 1
-    INFO "#{name.green}: token-expires => #{self.token-expires}s"
+    INFO "#{service-name}: check token expiry: #{token.yellow}/#{self.token-expires}s"
     return unless self.token-expires <= 0
     self.clear-token!
 
 
   clear-token: ->
-    {name, token} = self = @
+    {service-name, token} = self = @
     token = "null" unless token?
-    INFO "#{name.green}: clear token #{token.yellow}"
+    INFO "#{service-name}: clear token #{token.yellow}"
     self.token = null
     self.token-expires = 0
 
@@ -268,19 +283,32 @@ class WsManager
     return @token
 
 
-  generate-service-token: (expire, token=null) ->
-    {name} = self = @
+  generate-service-token: (expire=TOKEN_DEFAULT_EXPIRES, token=null) ->
+    {service-name} = self = @
     self.token-expires = if expire > 0 then expire else TOKEN_DEFAULT_EXPIRES
     self.token = token
     self.token = (uid 6).to-upper-case! unless self.token?
-    INFO "#{name.green}: use new token #{self.token.yellow} for #{self.token-expires}s"
+    INFO "#{service-name}: use new token #{self.token.yellow} for #{self.token-expires}s"
+    return self.token
 
 
+  create-manager: (app, name, opts, handler-clazz, ctx={}) ->
+    {managers, service-name} = self = @
+    return new WsManager self, app, name, opts, handler-clazz, ctx unless managers[name]?
+    ERR "#{service-name}: the websocket channel #{name} is already created!!"
+    return null
+
+
+
+module.wss = new Wss {}
 
 
 module.exports = exports =
   create-instance: (app, name, opts, handler-clazz, ctx={}) ->
-    return new WsManager app, name, opts, handler-clazz, ctx
+    return module.wss.create-manager app, name, opts, handler-clazz, ctx
+
+  generate-service-token: (expire=null, token=null) ->
+    return module.wss.generate-service-token expire, token
 
   HandlerClazz: WsHandler
 
