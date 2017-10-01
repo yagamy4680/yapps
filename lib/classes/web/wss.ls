@@ -49,7 +49,6 @@
 #     `response`  : the response of performing the action
 #         payload :
 #           - index   , the index (as integer) of the request
-#           - action  , the action to be performed
 #           - result  , the result of the action, could be `null`.
 #           - error   , the error when performing the action. When `null`, it indicates successful
 #                       to perform the action.
