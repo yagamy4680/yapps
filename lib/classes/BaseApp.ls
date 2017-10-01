@@ -118,6 +118,16 @@ HOOK = (err) ->
   return err
 
 
+LOAD_MODULE = (fullpath, done) ->
+  try
+    m = require fullpath
+    DBG "load #{fullpath} successfully"
+    return done null, m
+  catch error
+    ERR error, "load #{fullpath} but failed."
+    return done error
+
+
 class AppContext
   (@opts) ->
     @server = new eventemitter2.EventEmitter2 do
@@ -158,11 +168,29 @@ class BaseApp
     @plugins = []
     @plugin_instances = []
     @helpers.ext = extendify!
-    this.add-plugin require './sock'
+    @.add-plugin require './sock'
+
+
+  init-extra-plugins: (done) ->
+    self = @
+    {YAPPS_EXTRA_PLUGINS} = process.env
+    return done! unless YAPPS_EXTRA_PLUGINS?
+    return done! if YAPPS_EXTRA_PLUGINS is ""
+    tokens = YAPPS_EXTRA_PLUGINS.split ':'
+    f = (p, cb) ->
+      (err, plugin) <- LOAD_MODULE p
+      return cb err if err?
+      self.add-plugin plugin
+      return cb!
+    return async.eachSeries tokens, f, done
 
 
   init: (done) ->
-    @.init-internal (err) -> return done HOOK err
+    self = @
+    (ee) <- self.init-extra-plugins
+    return done HOOK ee if ee?
+    (ie) <- self.init-internal
+    return done HOOK ie
 
 
   init-internal: (done) ->
@@ -203,9 +231,9 @@ class BaseApp
         # Initialize each plugin with given options
         p.attach.apply context, [c, h]
       catch error
-        ERR error, "failed to load plugin"
+        ERR error, "failed to load plugin #{p-name.cyan}"
         process.exit 2
-    return @.init-each-plugin done
+    return self.init-each-plugin done
 
 
   init-each-plugin: (done) ->
