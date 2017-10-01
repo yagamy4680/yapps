@@ -30,6 +30,20 @@ create-application = (type, opts) ->
       return process.exit 1
 
 
+class GlobalModule
+  (@opts) ->
+    @modules = colors: colors
+
+  add-module: (xs) ->
+    self = @
+    for k, v of xs
+      self.modules[k] = v
+
+
+global.gm = new GlobalModule {}
+global.get-bundled-modules = -> return global.gm.modules
+global.add-bundled-module = (xs) -> return global.gm.add-module xs
+
 
 module.exports = exports =
   init: (app-filename) ->

@@ -1,5 +1,6 @@
 require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
+global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 
 #
 # Apply command-line settings on the global configuration.
@@ -43,8 +44,7 @@ dump-generated-config = (config, text) ->
     defaultIndentation: 4
   xs = text.split '\n'
   console.error "generated configration:"
-  for x in xs
-    console.error "\t#{x}"
+  [ console.error "\t#{x}" for x in xs ]
   console.error ""
   # return console.error "generated configuration:\n#{text}\n"
 

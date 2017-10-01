@@ -1,6 +1,7 @@
 require! <[express fs http colors]>
 {elem-index, keys} = require \prelude-ls
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
+global.add-bundled-module {express}
 error_responses = require \./web_errors
 
 composeError = (req, res, name, err = null) ->
