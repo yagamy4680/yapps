@@ -16,7 +16,7 @@ composeError = (req, res, name, err = null) ->
       error: name
       url: req.originalUrl
       message: msg
-    ERR "#{req.method} #{colors.yellow req.url} #{colors.green name} json = #{JSON.stringify result}"
+    ERR "#{req.method} #{colors.yellow req.original-url} #{colors.red name} ==> #{(JSON.stringify result).cyan}"
     res.status r.status .json result
   else
     ERR "#{colors.yellow req.url} #{colors.green name} json = unknown error"

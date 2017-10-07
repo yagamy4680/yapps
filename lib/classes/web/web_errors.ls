@@ -19,6 +19,11 @@ module.exports = exports =
     code: -2001
     message: "missing `archive` field in multipart/form-data for adding an archive"
 
+  resource_unavailable:
+    status: 404
+    code: -2001
+    message: "Resource Unavailable: {{err}}"
+
   archive_unavailable:
     status: 404
     code: -2002
