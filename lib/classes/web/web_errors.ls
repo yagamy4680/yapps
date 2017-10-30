@@ -14,6 +14,11 @@ module.exports = exports =
     code: -1003
     message: "client with untrusted developer api token to access sensitive resource {{originalUrl}}"
 
+  invalid_argument:
+    status: 400
+    code: -2001
+    message: "Invalid Argument: {{err}}"
+
   missing_archive_at_creation:
     status: 400
     code: -2001

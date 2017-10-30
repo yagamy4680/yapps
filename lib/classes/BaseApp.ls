@@ -129,7 +129,8 @@ LOAD_MODULE = (fullpath, done) ->
 
 
 class AppContext
-  (@opts) ->
+  (@opts, helpers) ->
+    @system-uptime = new helpers.system-uptime {}
     @server = new eventemitter2.EventEmitter2 do
       wildcard: yes
       delimiter: \::
@@ -164,7 +165,7 @@ line-emitter-currying = (app, plugin-name, resource-name, channel-name, context,
 
 class BaseApp
   (@name, @opts, @helpers) ->
-    @context = new AppContext opts
+    @context = new AppContext opts, helpers
     @plugins = []
     @plugin_instances = []
     @helpers.ext = extendify!

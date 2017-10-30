@@ -5,6 +5,7 @@ helpers =
   util: require \./util
   resource: require \./resource
   timer: require \./timer
+  system-uptime: require \./system-uptime
   async-executer: require \./async-executer
   deploy-config: require \./deploy-config
 
