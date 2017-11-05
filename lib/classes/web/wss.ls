@@ -75,14 +75,10 @@
 #
 require! <[colors uid]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
+{EVENT_READY, EVENT_CONFIGURED, EVENT_DATA, REQ_CONFIGURE} = require \./wss-constants
+{REQUEST_CHANNEL, RESPONSE_CHANNEL, create-rr-commander} = require \./wss-helpers
 
 const TOKEN_DEFAULT_EXPIRES = 60s
-
-const EVENT_READY = \ready
-const EVENT_CONFIGURED = \configured
-const EVENT_DATA = \data
-const REQ_CONFIGURE = \configure
-
 
 class WsHandler
   (@app, @manager, @index, @ws, @config, @ctx, @verbose) ->
@@ -91,19 +87,65 @@ class WsHandler
     self.id = ws.id
     self.ip = ws.conn.remoteAddress
     self.configured = no
+    self.rrctx = null
+    self.rr = null
     ws.on REQ_CONFIGURE, (p) -> return self.at-ws-configure p
     ws.on EVENT_DATA, (p) -> return self.at-ws-data p
-    ws.emit EVENT_READY, {}
+
+
+  initiate-rr-commander: (@rrctx) ->
+    {ws, manager} = self = @
+    {name} = manager
+    rr = self.rr = create-rr-commander name, {}, rrctx
+    rr.set-outgoing-req (p) ->
+      self.DEBUG "me>>peer[req]: #{JSON.stringify p}"
+      return ws.emit REQUEST_CHANNEL, p
+    rr.set-outgoing-rsp (p) ->
+      self.DEBUG "me<<peer[rsp]: #{JSON.stringify p}"
+      return ws.emit RESPONSE_CHANNEL, p
+    ws.on REQUEST_CHANNEL, (p) ->
+      self.DEBUG "me<<peer[req]: #{JSON.stringify p}"
+      return rr.process-incoming-req p
+    ws.on RESPONSE_CHANNEL, (p) ->
+      self.DEBUG "me>>peer[rsp]: #{JSON.stringify p}"
+      return rr.process-incoming-rsp p
+
+
+  perform-req-with-rsp: (action, args=[]) ->
+    {rr, verbose} = self = @
+    return self.ERR "perform-req-with-rsp(): missing request-and-response commander" unless rr?
+    return self.ERR "perform-req-with-rsp(): missing callback" unless args.length > 0
+    done = args.pop!
+    return self.ERR "perform-req-with-rsp(): last argument is not callback function" unless \function is typeof done
+    if verbose
+      fs = [ (JSON.stringify a) for a in args ]
+      fs = fs.join ", "
+      self.DEBUG "perform-req-with-rsp(): #{action}(#{fs.gray})"
+    xs = [done, action, yes] ++ args
+    return rr.perform-request.apply rr, xs
+
+
+  perform-req-without-rsp: (action, args=[]) ->
+    {rr, verbose} = self = @
+    return self.ERR "perform-req-without-rsp(): missing request-and-response commander" unless rr?
+    if verbose
+      fs = [ (JSON.stringify a) for a in args ]
+      fs = fs.join ", "
+      self.DEBUG "perform-req-with-rsp(): #{action}(#{fs.gray})"
+    xs = [null, action, no] ++ args
+    return rr.perform-request.apply rr, xs
 
 
   get-timestamp: -> return (new Date!) - 0
 
 
   at-ws-disconnect: ->
-    {ws} = self = @
-    self.DEBUG "at-ws-disconnect"
+    {ws, rr} = self = @
+    self.DEBUG "at-ws-disconnect, clean up listeners"
     ws.removeAllListeners REQ_CONFIGURE
     ws.removeAllListeners EVENT_DATA
+    ws.removeAllListeners REQUEST_CHANNEL if rr?
+    ws.removeAllListeners RESPONSE_CHANNEL if rr?
     return
 
 
@@ -171,6 +213,16 @@ class WsHandler
       items: (if Array.isArray items then items else [items])
       args: args
 
+  ERR: ->
+    {verbose, name, index, ip, manager} = self = @
+    LOGGER = ERR
+    args = Array.from arguments
+    a0 = args[0]
+    a1 = args[1]
+    message = if \object is typeof a0 then a1 else a0
+    message = "#{manager.name.green}: [#{index.gray}/#{name.green}/#{ip.magenta}] #{message}"
+    args = if \object is typeof a0 then [a0, message] else [message]
+    return LOGGER.apply null, args
 
   DEBUG: ->
     {verbose, name, index, ip, manager} = self = @
@@ -183,13 +235,23 @@ class WsHandler
     args = if \object is typeof a0 then [a0, message] else [message]
     return LOGGER.apply null, args
 
-
-  # CLIENT-MUST-IMPLEMENT!!
+  # Subclass shall implement following methods for different
+  # purposes..
   #
+  ## Initiate all related resources for the handler, including the context object
+  ## for R&R commander (request-and-response).
+  init: (done) -> return done!
+
+  ## Process the configure-request from client, with
+  ## the given options.
   process_configure: (opts, done) -> return
+
+  ## Process the emit data from client.
+  ##
   # process_data_[category1]: (items, ...) -> return
   # process_data_[category2]: (items, ...) -> return
   # process_data_[category3]: (items, ...) -> return
+
 
 
 
@@ -202,11 +264,19 @@ class WsManager
     self.index = 0
 
 
-  register: (done) ->
+  init: (done) ->
     {app, name} = self = @
     {web} = app
+    return done new Error "WSS depends on plugin #{'web'.yellow} but missing" unless web?
     web.useWs name, (ws) -> return self.add ws
     return done!
+
+
+  force-disconnect-with-err: (ws, handler, err, message) ->
+    ws.removeAllListeners \disconnect
+    ws.disconnect!
+    handler.at-ws-disconnect! if handler?
+    ERR err, message
 
 
   add: (ws) ->
@@ -217,9 +287,14 @@ class WsManager
     handler-config = opts.handler
     handler-config = {} unless handler-config?
     handler = handlers[id]
-    return ERR "#{name.green}: duplicate identity to add: #{id}" if handler?
-    handler = handlers[id] = new handler-clazz app, self, index, ws, handler-config, ctx, verbose
+    return self.force-disconnect-with-err ws, null, "#{name.green}: duplicate identity to add: #{id}" if handler?
+    handler = new handler-clazz app, self, index, ws, handler-config, ctx, verbose
+    (err, rrctx) <- handler.init
+    return self.force-disconnect-with-err ws, handler, "#{name.green}: failed to initiate handler #{index}/#{id}, err: #{err}" if err?
+    handlers[id] = handler
+    handler.initiate-rr-commander rrctx if rrctx?
     ws.on \disconnect, -> return self.at-ws-disconnect id, ws, handler
+    ws.emit EVENT_READY, {}
     return INFO "#{name.green}: add #{index.gray}/#{id.gray} from #{ws.conn.remoteAddress.magenta}" if verbose
 
 
@@ -254,13 +329,17 @@ class Wss
   (@opts) ->
     self = @
     self.service-name = \wss
-    self.token = null
-    self.token-expires = 0
     self.generate-service-token!
     self.managers = {}
+    self.token = \ABCD
+    /*
+    self.token = null
+    self.token-expires = 0
     f = -> return self.at-timeout!
     self.timer = setInterval f, 1000ms
+    */
 
+  /*
   at-timeout: ->
     {service-name, token} = self = @
     return if self.token-expires <= 0
@@ -268,14 +347,16 @@ class Wss
     INFO "#{service-name}: check token expiry: #{token.yellow}/#{self.token-expires}s"
     return unless self.token-expires <= 0
     self.clear-token!
-
+  */
 
   clear-token: ->
+    /*
     {service-name, token} = self = @
     token = "null" unless token?
     INFO "#{service-name}: clear token #{token.yellow}"
     self.token = null
     self.token-expires = 0
+    */
 
 
   get-service-token: ->

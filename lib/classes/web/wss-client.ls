@@ -1,24 +1,62 @@
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 sioc = require \socket.io-client
-
-const EVENT_READY = \ready
-const EVENT_CONFIGURED = \configured
-const EVENT_DATA = \data
-const REQ_CONFIGURE = \configure
+{EVENT_READY, EVENT_CONFIGURED, EVENT_DATA, REQ_CONFIGURE} = require \./wss-constants
+{REQUEST_CHANNEL, RESPONSE_CHANNEL, create-rr-commander} = require \./wss-helpers
 
 
 module.exports = exports = class WssClient
-  (@server, @channel, @name=\smith, @token=null, @opts={}, @verbose=no) ->
+  (@server, @channel, @name=\smith, @token=null, @opts={}, @verbose=no, @rrctx-clazz=null) ->
     self = @
+    self.rr = null
     ws = self.ws = sioc "#{server}/#{channel}", autoConnect: no
     ws.on \connect, -> return self.at-internal-connected!
     ws.on \disconnect, -> return self.at-internal-disconnected!
     ws.on EVENT_READY, -> return self.at-internal-ready!
     ws.on EVENT_CONFIGURED, (p) -> return self.at-internal-configured p
     ws.on EVENT_DATA, (p) -> return self.at-ws-data p
+    return unless rrctx-clazz?
+    self.rrctx = new rrctx-clazz self, opts
+    rr = self.rr = create-rr-commander name, {}, self.rrctx
+    rr.set-outgoing-req (p) ->
+      self.DEBUG "me>>peer[req]: #{JSON.stringify p}"
+      return ws.emit REQUEST_CHANNEL, p
+    rr.set-outgoing-rsp (p) ->
+      self.DEBUG "me<<peer[rsp]: #{JSON.stringify p}"
+      return ws.emit RESPONSE_CHANNEL, p
+    ws.on REQUEST_CHANNEL, (p) ->
+      self.DEBUG "me<<peer[req]: #{JSON.stringify p}"
+      return rr.process-incoming-req p
+    ws.on RESPONSE_CHANNEL, (p) ->
+      self.DEBUG "me>>peer[rsp]: #{JSON.stringify p}"
+      return rr.process-incoming-rsp p
 
 
-  connect: (done) -> return @.ws.connect done
+  connect: (done) -> return @ws.connect done
+
+
+  perform-req-with-rsp: (action, args=[]) ->
+    {rr, verbose} = self = @
+    return self.ERR "perform-req-with-rsp(): missing request-and-response commander" unless rr?
+    return self.ERR "perform-req-with-rsp(): missing callback" unless args.length > 0
+    done = args.pop!
+    return self.ERR "perform-req-with-rsp(): last argument is not callback function" unless \function is typeof done
+    if verbose
+      fs = [ (JSON.stringify a) for a in args ]
+      fs = fs.join ", "
+      self.DEBUG "perform-req-with-rsp(): #{action}(#{fs.gray})"
+    xs = [done, action, yes] ++ args
+    return rr.perform-request.apply rr, xs
+
+
+  perform-req-without-rsp: (action, args=[]) ->
+    {rr, verbose} = self = @
+    return self.ERR "perform-req-without-rsp(): missing request-and-response commander" unless rr?
+    if verbose
+      fs = [ (JSON.stringify a) for a in args ]
+      fs = fs.join ", "
+      self.DEBUG "perform-req-with-rsp(): #{action}(#{fs.gray})"
+    xs = [null, action, no] ++ args
+    return rr.perform-request.apply rr, xs
 
 
   at-internal-ready: ->
@@ -41,7 +79,13 @@ module.exports = exports = class WssClient
 
 
   at-internal-disconnected: ->
-    return @.at-disconnected @ws
+    {ws, rr} = self = @
+    self.DEBUG "at-ws-disconnect, clean up listeners"
+    ws.removeAllListeners REQ_CONFIGURE
+    ws.removeAllListeners EVENT_DATA
+    ws.removeAllListeners REQUEST_CHANNEL if rr?
+    ws.removeAllListeners RESPONSE_CHANNEL if rr?
+    return self.at-disconnected ws
 
 
   at-ws-data: (p) ->
@@ -59,6 +103,30 @@ module.exports = exports = class WssClient
     f = self[name]
     return WARN "missing handler function #{name} in subclass" unless f?
     return f.apply self, args
+
+
+  ERR: ->
+    {verbose, name, index} = self = @
+    LOGGER = ERR
+    args = Array.from arguments
+    a0 = args[0]
+    a1 = args[1]
+    message = if \object is typeof a0 then a1 else a0
+    message = "#{name.green}: [#{index.gray}] #{message}"
+    args = if \object is typeof a0 then [a0, message] else [message]
+    return LOGGER.apply null, args
+
+
+  DEBUG: ->
+    {verbose, name, channel} = self = @
+    LOGGER = if verbose then INFO else DBG
+    args = Array.from arguments
+    a0 = args[0]
+    a1 = args[1]
+    message = if \object is typeof a0 then a1 else a0
+    message = "#{name.green}: [#{channel.gray}] #{message}"
+    args = if \object is typeof a0 then [a0, message] else [message]
+    return LOGGER.apply null, args
 
 
   ##
