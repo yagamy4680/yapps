@@ -179,9 +179,10 @@ class WsHandler
     index = -1 unless index?
     (code, message) <- self.authenticate name, token
     return self.rsp-configure index, code, message if code?
-    (err) <- self.process_configure opts
+    (err, rrctx) <- self.process_configure opts
     return self.rsp-configure index, -2, err if err?
     self.configured = yes
+    self.initiate-rr-commander rrctx if rrctx?
     return self.rsp-configure index
 
 
@@ -238,12 +239,13 @@ class WsHandler
   # Subclass shall implement following methods for different
   # purposes..
   #
-  ## Initiate all related resources for the handler, including the context object
-  ## for R&R commander (request-and-response).
-  init: (done) -> return done!
-
   ## Process the configure-request from client, with
   ## the given options.
+  ##
+  ## The given callback function has 2 parameters: err, rrctx.
+  ## `err` indicates successful or failed to process configurations
+  ## `rrctx` is optional, as context object of request-and-response commander.
+  ##
   process_configure: (opts, done) -> return
 
   ## Process the emit data from client.
@@ -288,11 +290,7 @@ class WsManager
     handler-config = {} unless handler-config?
     handler = handlers[id]
     return self.force-disconnect-with-err ws, null, "#{name.green}: duplicate identity to add: #{id}" if handler?
-    handler = new handler-clazz app, self, index, ws, handler-config, ctx, verbose
-    (err, rrctx) <- handler.init
-    return self.force-disconnect-with-err ws, handler, "#{name.green}: failed to initiate handler #{index}/#{id}, err: #{err}" if err?
-    handlers[id] = handler
-    handler.initiate-rr-commander rrctx if rrctx?
+    handler = handlers[id] = new handler-clazz app, self, index, ws, handler-config, ctx, verbose
     ws.on \disconnect, -> return self.at-ws-disconnect id, ws, handler
     ws.emit EVENT_READY, {}
     return INFO "#{name.green}: add #{index.gray}/#{id.gray} from #{ws.conn.remoteAddress.magenta}" if verbose
