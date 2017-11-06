@@ -214,27 +214,19 @@ class WsHandler
       items: (if Array.isArray items then items else [items])
       args: args
 
-  ERR: ->
+  LOG: (logger, args) ->
     {verbose, name, index, ip, manager} = self = @
-    LOGGER = ERR
-    args = Array.from arguments
     a0 = args[0]
     a1 = args[1]
     message = if \object is typeof a0 then a1 else a0
     message = "#{manager.name.green}: [#{index.gray}/#{name.green}/#{ip.magenta}] #{message}"
-    args = if \object is typeof a0 then [a0, message] else [message]
-    return LOGGER.apply null, args
+    xs = if \object is typeof a0 then [a0, message] else [message]
+    return logger.apply null, xs
 
-  DEBUG: ->
-    {verbose, name, index, ip, manager} = self = @
-    LOGGER = if verbose then INFO else DBG
-    args = Array.from arguments
-    a0 = args[0]
-    a1 = args[1]
-    message = if \object is typeof a0 then a1 else a0
-    message = "#{manager.name.green}: [#{index.gray}/#{name.green}/#{ip.magenta}] #{message}"
-    args = if \object is typeof a0 then [a0, message] else [message]
-    return LOGGER.apply null, args
+  ERR: -> return @.LOG ERR, (Array.from arguments)
+  INFO: -> return @.LOG INFO, (Array.from arguments)
+  DEBUG: -> return @.LOG (if @verbose then INFO else DBG), (Array.from arguments)
+
 
   # Subclass shall implement following methods for different
   # purposes..
