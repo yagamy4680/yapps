@@ -83,11 +83,12 @@ module.exports = exports = class WssClient
 
   at-internal-disconnected: ->
     {ws, rr} = self = @
-    self.DEBUG "at-ws-disconnect, clean up listeners"
-    ws.removeAllListeners REQ_CONFIGURE
-    ws.removeAllListeners EVENT_DATA
-    ws.removeAllListeners REQUEST_CHANNEL if rr?
-    ws.removeAllListeners RESPONSE_CHANNEL if rr?
+    self.configured = no
+    # self.DEBUG "at-ws-disconnect, clean up listeners"
+    # ws.removeAllListeners REQ_CONFIGURE
+    # ws.removeAllListeners EVENT_DATA
+    # ws.removeAllListeners REQUEST_CHANNEL if rr?
+    # ws.removeAllListeners RESPONSE_CHANNEL if rr?
     return self.at-disconnected ws
 
 
