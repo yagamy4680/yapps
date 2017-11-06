@@ -5,8 +5,9 @@ sioc = require \socket.io-client
 
 
 module.exports = exports = class WssClient
-  (@server, @channel, @name=\smith, @token=null, @opts={}, @verbose=no, @rrctx-clazz=null) ->
+  (@server, @channel, @name=\smith, @token=null, @opts={}, @verbose=no, @rrctx=null, @rr-opts={}) ->
     self = @
+    self.configured = no
     self.rr = null
     ws = self.ws = sioc "#{server}/#{channel}", autoConnect: no
     ws.on \connect, -> return self.at-internal-connected!
@@ -14,9 +15,9 @@ module.exports = exports = class WssClient
     ws.on EVENT_READY, -> return self.at-internal-ready!
     ws.on EVENT_CONFIGURED, (p) -> return self.at-internal-configured p
     ws.on EVENT_DATA, (p) -> return self.at-ws-data p
-    return unless rrctx-clazz?
-    self.rrctx = new rrctx-clazz self, opts
-    rr = self.rr = create-rr-commander name, {}, self.rrctx
+    return unless rrctx?
+    self.opts.rrctx = rrctx.set-wssc self
+    rr = self.rr = create-rr-commander name, rr-opts, rrctx
     rr.set-outgoing-req (p) ->
       self.DEBUG "me>>peer[req]: #{JSON.stringify p}"
       return ws.emit REQUEST_CHANNEL, p
@@ -75,7 +76,9 @@ module.exports = exports = class WssClient
   at-internal-configured: (p) ->
     {ws} = self = @
     {index, code, err} = p
-    return self.at-configured ws, code, err
+    self.configured = code is 0
+    self.at-configured ws, code, err
+    return ws.disconnect! unless code is 0
 
 
   at-internal-disconnected: ->
@@ -103,6 +106,13 @@ module.exports = exports = class WssClient
     f = self[name]
     return WARN "missing handler function #{name} in subclass" unless f?
     return f.apply self, args
+
+
+  emit-data: (category, items, args) ->
+    {ws, configured} = self = @
+    return unless configured
+    index = new Date! - 0
+    ws.emit EVENT_DATA, {index, category, items, args}
 
 
   ERR: ->
