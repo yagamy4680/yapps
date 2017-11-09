@@ -304,7 +304,7 @@ class WsManager
     try
       handler.at-ws-disconnect!
     catch error
-      ERR "#{name.green}[#{id}]: unexpected error when disconnect => #{error}"
+      ERR error, "#{name.green}[#{id}]: unexpected error when disconnect => #{error}"
     return self.remove id
 
 

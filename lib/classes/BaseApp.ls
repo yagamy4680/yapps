@@ -1,6 +1,8 @@
 require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-global.add-bundled-module {async, optimist, eventemitter2, handlebars}
+lodash_merge = require \lodash.merge
+lodash_find = require \lodash.find
+global.add-bundled-module {async, optimist, eventemitter2, handlebars, lodash_merge, lodash_find}
 
 #
 # Apply command-line settings on the global configuration.
@@ -141,6 +143,7 @@ class AppContext
   on: -> return @server.on.apply @server, arguments
   emit: -> return @server.emit.apply @server, arguments
   add-listener: -> return @server.add-listener.apply @server, arguments
+  remove-listener: -> return @server.remove-listener.apply @server, arguments
 
 
 

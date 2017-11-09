@@ -9,7 +9,7 @@ module.exports = exports = class WssClient
     self = @
     self.configured = no
     self.rr = null
-    ws = self.ws = sioc "#{server}/#{channel}", autoConnect: no
+    ws = self.ws = sioc "#{server}/#{channel}", autoConnect: yes
     ws.on \connect, -> return self.at-internal-connected!
     ws.on \disconnect, -> return self.at-internal-disconnected!
     ws.on EVENT_READY, -> return self.at-internal-ready!
