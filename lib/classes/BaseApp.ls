@@ -1,8 +1,10 @@
 require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-lodash_merge = require \lodash.merge
-lodash_find = require \lodash.find
-global.add-bundled-module {async, optimist, eventemitter2, handlebars, lodash_merge, lodash_find}
+lodash_merge = require \lodash/merge
+lodash_find = require \lodash/find
+lodash_findIndex = require \lodash/findIndex
+lodash_sum = require \lodash/sum
+global.add-bundled-module {async, optimist, eventemitter2, handlebars, lodash_merge, lodash_find, lodash_findIndex, lodash_sum}
 
 #
 # Apply command-line settings on the global configuration.
@@ -205,7 +207,8 @@ class BaseApp
     sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
     config[\sock] = servers: system: sys-sock unless config[\sock]?
     config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
-    dump-generated-config config, (JSON.stringify config, null, ' ')
+    {YAPPS_DUMP_LOADED_CONFIG} = process.env
+    dump-generated-config config, (JSON.stringify config, null, ' ') unless YAPPS_DUMP_LOADED_CONFIG is \false
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p

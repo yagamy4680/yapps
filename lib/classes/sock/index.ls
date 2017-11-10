@@ -1,6 +1,6 @@
 require! <[net mkdirp async fs path byline url through]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-{elem-index} = require \prelude-ls
+{lodash_findIndex} = global.get-bundled-modules!
 
 class SocketServer
   (@name, @config, @app, @helpers) ->
@@ -44,7 +44,7 @@ class SocketServer
     {name, helpers, connections, app} = self
     {line-emitter-currying, data-emitter-currying} = helpers
     {remote-address, remote-family, remote-port} = c
-    DBG "#{name.cyan} incoming-connection: #{remote-address}, #{remote-family}, #{remote-port}"
+    INFO "#{name.cyan} incoming-connection: #{remote-address}, #{remote-family}, #{remote-port}"
     connections.push c
 
     l = line-emitter-currying name, \from-peer, {connection: c}
@@ -57,12 +57,12 @@ class SocketServer
     r = byline.create-stream t
     r.on \data, l
     c.on \error, (err) ->
-      idx = connections |> elem-index c
+      idx = lodash_findIndex connections, c
       ERR err, "#{name.cyan} connections[#{idx}[ throws error, remove it from connnection-list, err: #{err}"
       connections.splice idx, 1 if idx?
       r.removeAllListeners \data
     c.on \end, ->
-      idx = connections |> elem-index c
+      idx = lodash_findIndex connections, c
       INFO "#{name.cyan} #{idx}(#{remote-address}) disconnected"
       connections.splice idx, 1 if idx?
       r.removeAllListeners \data

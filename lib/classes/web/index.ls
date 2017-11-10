@@ -1,8 +1,9 @@
 require! <[express fs http colors]>
-{elem-index, keys} = require \prelude-ls
-{DBG, ERR, WARN, INFO} = global.get-logger __filename
-global.add-bundled-module {express}
 error_responses = require \./web_errors
+{DBG, ERR, WARN, INFO} = global.get-logger __filename
+{lodash_merge} = global.get-bundled-modules!
+
+global.add-bundled-module {express}
 
 composeError = (req, res, name, err = null) ->
   require! <[handlebars]>
@@ -40,8 +41,7 @@ detectClientIp = (req, res, next) ->
   web_context = req.web_context
   web_context.trusted_ip = false
   web_context.trusted_ip = true if ip == "127.0.0.1"
-  web_context.trusted_ip = true if ip.startsWith "192.168."
-  web_context.trusted_ip = true if undefined != elem-index ip, <[118.163.145.217 118.163.145.218 118.163.145.219 118.163.145.220 118.163.145.221 118.163.145.222 59.87.11.170]>
+  # web_context.trusted_ip = true if ip.startsWith "192.168."
   next!
 
 
@@ -109,8 +109,9 @@ class WebServer
       ws: {}
 
     # Replace with user's preferred options
-    fields = keys @_opts
-    @_opts = util.copy-object @_opts, @opts, fields
+    # fields = [ k for k, v of @_opts ]
+    # @_opts = util.copy-object @_opts, @opts, fields
+    @_opts = lodash_merge @_opts, @opts
 
     # Directory for compiled assets (e.g. Livescript to Javascript)
     @_opts.js_dest_path = resource.resolveWorkPath \work, 'web/dest' unless @_opts.headless
