@@ -1,4 +1,5 @@
-require! <[handlebars livescript extendify]>
+require! <[handlebars livescript]>
+{lodash_merge} = get-bundled-modules!
 
 USE_CURRYING = (environment, variable) -->
   return variable if (typeof variable) in <[string number boolean]>
@@ -39,14 +40,11 @@ TRANSFORM_BOOLEAN = (object, dir) ->
 
 
 TRANSFORM = (env, json, text, context) ->
-  ext = extendify!
   use = USE_CURRYING env
   handlebars.registerHelper \use, use
   try
     {_metadata, _definitions} = json
-    ctx = {}
-    ctx = ext ctx, _definitions
-    ctx = ext ctx, context
+    ctx = lodash_merge {}, _definitions, context
     # console.log "text = #{text}"
     # console.log "ctx = #{JSON.stringify ctx}"
     template = handlebars.compile text
