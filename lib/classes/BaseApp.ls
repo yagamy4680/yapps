@@ -1,10 +1,8 @@
 require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
+global.add-bundled-module {async, optimist, eventemitter2, handlebars}
+
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-lodash_merge = require \lodash/merge
-lodash_find = require \lodash/find
-lodash_findIndex = require \lodash/findIndex
-lodash_sum = require \lodash/sum
-global.add-bundled-module {async, optimist, eventemitter2, handlebars, lodash_merge, lodash_find, lodash_findIndex, lodash_sum}
+{lodash_merge, lodash_find, lodash_findIndex, lodash_sum} = get-bundled-modules!
 
 #
 # Apply command-line settings on the global configuration.
