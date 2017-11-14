@@ -16,6 +16,7 @@ class SocketServer
     {name, uri, server, verbose} = self = @
     INFO "[#{name.cyan}] #{uri.green}" if verbose
     {protocol, hostname, port, pathname} = url.parse uri
+    self.protocol = protocol
     if protocol == "tcp:"
       err0 <- server.listen port, hostname
       return done "[#{name.cyan}] failed to create tcp socket server, err: #{err0}" if err0?
@@ -80,6 +81,12 @@ class SocketServer
   write: (data) ->
     {connections} = @
     [ (c.write data) for c in connections ]
+
+
+  to-json: ->
+    {name, uri, protocol, config} = @
+    {line} = config
+    return {name, protocol, uri, line}
 
 
 
