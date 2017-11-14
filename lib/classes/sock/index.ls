@@ -3,7 +3,7 @@ require! <[net mkdirp async fs path byline url through]>
 {lodash_findIndex} = global.get-bundled-modules!
 
 class SocketServer
-  (@name, @config, @app, @helpers) ->
+  (@name, @config, @app, @helpers, @verbose) ->
     self = @
     @uri = config.uri
     @connections = []
@@ -13,9 +13,8 @@ class SocketServer
     server.on \error, (err) -> ERR err, "#{name.cyan} unexpected error"
 
   start: (done) ->
-    self = @
-    {name, uri, server} = self
-    DBG "[#{name.cyan}] #{uri.green}"
+    {name, uri, server, verbose} = self = @
+    INFO "[#{name.cyan}] #{uri.green}" if verbose
     {protocol, hostname, port, pathname} = url.parse uri
     if protocol == "tcp:"
       err0 <- server.listen port, hostname
@@ -26,11 +25,11 @@ class SocketServer
       dir = path.dirname pathname
       err0 <- mkdirp dir
       return done "[#{name.cyan}] failed to create dir #{dir}, err: #{err0}" if err0?
-      DBG "[#{name.cyan}] successfully create #{dir}"
+      INFO "[#{name.cyan}] successfully create #{dir}" if verbose
       err1, stats <- fs.stat pathname
       return done "[#{name.cyan}] #{pathname} exists but not a domain socket file" if (not err1?) and (not stats.is-socket!)
       fs.unlink-sync pathname unless err1?
-      DBG "[#{name.cyan}] successfully cleanup previous domain socket" if err?
+      INFO "[#{name.cyan}] successfully cleanup previous domain socket" if verbose
       err2 <- server.listen pathname
       return done "[#{name.cyan}] failed to create domain socket, err: #{err2}" if err2?
       INFO "listening #{pathname.cyan}"
@@ -44,7 +43,8 @@ class SocketServer
     {name, helpers, connections, app} = self
     {line-emitter-currying, data-emitter-currying} = helpers
     {remote-address, remote-family, remote-port} = c
-    INFO "#{name.cyan} incoming-connection: #{remote-address}, #{remote-family}, #{remote-port}"
+    remote = "#{remote-address}:#{remote-port}"
+    INFO "#{name.cyan} incoming-connection: #{remote.magenta}, #{remote-family.yellow}"
     connections.push c
 
     l = line-emitter-currying name, \from-peer, {connection: c}
@@ -63,7 +63,7 @@ class SocketServer
       r.removeAllListeners \data
     c.on \end, ->
       idx = lodash_findIndex connections, c
-      INFO "#{name.cyan} #{idx}(#{remote-address}) disconnected"
+      INFO "#{name.cyan} #{idx}(#{remote.magenta}) disconnected"
       connections.splice idx, 1 if idx?
       r.removeAllListeners \data
     c.pipe t
@@ -71,21 +71,33 @@ class SocketServer
 
 
   write-line: (line) ->
-    {connections} = @
-    DBG "line: #{line}"
-    for c in connections
-      c.write "#{line}\n"
+    {connections, verbose} = @
+    INFO "line: #{line}" if verbose
+    text = "#{line}\n"
+    [ (c.write text) for c in connections ]
 
 
   write: (data) ->
     {connections} = @
-    for c in connections
-      c.write data
+    [ (c.write data) for c in connections ]
 
 
 
 class Manager
-  (@sockets, @socket-map) -> return
+  (@opts, @app, @helpers) ->
+    @sockets = []
+    @socket-map = {}
+    {verbose} = opts
+    @verbose = verbose
+    @verbose = no unless @verbose? and @verbose
+    return
+
+  init: (done) ->
+    {opts, app, helpers, verbose} = self = @
+    self.sockets = [ new SocketServer name, config, app, helpers, verbose for name, config of opts.servers ]
+    self.socket-map = { [s.name, s] for s in self.sockets }
+    start-server = (s, cb) -> return s.start cb
+    return async.each self.sockets, start-server, done
 
   send-line: (name, line) ->
     s = @socket-map[name]
@@ -102,26 +114,20 @@ class Manager
     return null unless s?
     return s.connections
 
+  get-server: (name) ->
+    return @socket-map[name]
+
 
 module.exports = exports =
-
   attach: (opts, helpers) ->
     app = @
-    sockets = module.sockets = [new SocketServer name, config, app, helpers for name, config of opts.servers]
-    socket-map = module.socket-map = {}
-    for s in sockets
-      socket-map[s.name] = s
-    manager = module.manager = @sock = new Manager sockets, socket-map
+    module.manager = app.sock = new Manager opts, app, helpers
 
 
   init: (done) ->
-    app = @
-    {sockets, socket-map} = module
-    iterator = (s, cb) -> return s.start cb
-    async.each sockets, iterator, (err) ->
-      DBG err, "failed to start" if err?
-      return done err
-
+    (err) <- module.manager.init
+    WARN err, "unexpected error to initiate socket server!!" if err?
+    return done!
 
 /*
   # Output events:
