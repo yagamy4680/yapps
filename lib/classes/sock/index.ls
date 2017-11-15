@@ -45,6 +45,7 @@ class SocketServer
     {line-emitter-currying, data-emitter-currying} = helpers
     {remote-address, remote-family, remote-port} = c
     remote = "#{remote-address}:#{remote-port}"
+    remote-family = "unknown" unless remote-family?
     INFO "#{name.cyan} incoming-connection: #{remote.magenta}, #{remote-family.yellow}"
     connections.push c
 
@@ -87,6 +88,10 @@ class SocketServer
     {name, uri, protocol, config} = @
     {line} = config
     return {name, protocol, uri, line}
+
+
+  get-connections: ->
+    return @connections
 
 
 

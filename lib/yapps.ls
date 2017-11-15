@@ -25,7 +25,9 @@ lodash_merge = require \lodash/merge
 lodash_find = require \lodash/find
 lodash_findIndex = require \lodash/findIndex
 lodash_sum = require \lodash/sum
-global.add-bundled-module {lodash_merge, lodash_find, lodash_findIndex, lodash_sum}
+lodash_padStart = require \lodash/padStart
+lodash_padEnd = require \lodash/padEnd
+global.add-bundled-module {lodash_merge, lodash_find, lodash_findIndex, lodash_sum, lodash_padStart, lodash_padEnd}
 
 
 module.exports = exports =
