@@ -153,13 +153,13 @@ class WsHandler
     {ip, manager} = self = @
     return done -10, "missing name" unless name?
     self.name = name
+    self.token = token
     t = manager.get-service-token!
     return done! if ip is \127.0.0.1
     return done -11, "missing token from client #{ip}" unless token?
     return done -12, "no valid token at server" unless t?
     return done -13, "invalid token" unless token is t
     self.DEBUG "accept service token #{token.yellow} for client #{ip.magenta}"
-    self.token = token
     manager.clear-token!
     return done!
 
@@ -311,7 +311,8 @@ class WsManager
   get-service-token: ->
     return @wss.get-service-token!
 
-
+  clear-token: ->
+    return @wss.clear-token!
 
 
 
@@ -340,6 +341,7 @@ class Wss
   */
 
   clear-token: ->
+    return
     /*
     {service-name, token} = self = @
     token = "null" unless token?
