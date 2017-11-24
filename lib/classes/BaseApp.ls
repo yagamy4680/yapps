@@ -105,6 +105,7 @@ load-config = (name, helpers) ->
   deploy-environment = \development
   deploy-environment = YAPPS_ENV if YAPPS_ENV? and YAPPS_ENV in <[production testing development]>
   deploy-environment = BOARD_PROFILE_ENV if BOARD_PROFILE_ENV? and BOARD_PROFILE_ENV in <[production testing development]>
+  colors.enabled = yes if deploy-environment is \development
   context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
   text = JSON.stringify config, null, '  '
   {error, output} = deploy-config deploy-environment, config, text, context

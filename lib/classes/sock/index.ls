@@ -72,6 +72,11 @@ class SocketServer
     return
 
 
+  write-line-tokens: (tokens=[], datetime=no, delimiter='\t') ->
+    xs = if datetime then ([(new Date!).toISOString!] ++ tokens) else tokens
+    return @.write-line (xs.join delimiter)
+
+
   write-line: (line) ->
     {connections, verbose} = @
     INFO "line: #{line}" if verbose
