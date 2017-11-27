@@ -39,6 +39,23 @@ class SocketServer
       return done "unsupported protocol scheme: #{protocol}"
 
 
+  stop: (done) ->
+    {name, connections, server, uri} = self = @
+    prefix = "[#{name.cyan}]"
+    for let c, i in connections
+      try
+        INFO "#{prefix} closing connections[#{i}] from #{c.remote-address}"
+        c.destroy!
+        c.end!
+      catch error
+        ERR error, "#{prefix}: failed to close one connection => #{c.remote-address}"
+    INFO "#{prefix} stop listening #{uri.cyan}"
+    server.ref!
+    (err) <- server.close
+    WARN err, "#{prefix}: failed to close server" if err?
+    return done!
+
+
   incoming-connection: (c) ->
     self = @
     {name, helpers, connections, app} = self
@@ -116,6 +133,11 @@ class Manager
     start-server = (s, cb) -> return s.start cb
     return async.each self.sockets, start-server, done
 
+  fini: (done) ->
+    {sockets} = self = @
+    stop-server = (s, cb) -> return s.stop cb
+    return async.each sockets, stop-server, done
+
   send-line: (name, line) ->
     s = @socket-map[name]
     return unless s?
@@ -145,6 +167,10 @@ module.exports = exports =
     (err) <- module.manager.init
     WARN err, "unexpected error to initiate socket server!!" if err?
     return done!
+
+
+  fini: (done) ->
+    return module.manager.fini done
 
 /*
   # Output events:
