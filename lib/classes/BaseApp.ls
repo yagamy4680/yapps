@@ -4,6 +4,11 @@ global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_find, lodash_findIndex, lodash_sum} = get-bundled-modules!
 
+
+ERR_EXIT = (err, message, code=2) ->
+  ERR err, message
+  return process.exit code
+
 #
 # Apply command-line settings on the global configuration.
 #
@@ -84,8 +89,8 @@ load-config = (name, helpers) ->
   # Load configuration from $WORK_DIR/config/xxx.json, or .ls
   #
   {json, text, source} = resource.loadConfig argv.config
+  return ERR_EXIT "failed to load #{argv.config}", null, 1 unless json?
   global.config = json
-  return process.exit 1 unless json?
 
   apply-cmd-config argv.s, "string"
   apply-cmd-config argv.i, "integer"
@@ -110,9 +115,15 @@ load-config = (name, helpers) ->
   text = JSON.stringify config, null, '  '
   {error, output} = deploy-config deploy-environment, config, text, context
   return output unless error?
-  ERR error, "failed to generate config with deployment option"
-  return process.exit 1
+  return ERR_EXIT error, "failed to generate config with deployment option", 1
 
+
+PLUGIN_INIT_CURRYING = (context, plugin, cb) -->
+  try
+    {instance} = plugin
+    return instance.init.apply context, [cb]
+  catch error
+    return cb error
 
 
 HOOK = (err) ->
@@ -199,9 +210,7 @@ class BaseApp
 
 
   init-internal: (done) ->
-    self = @
-    {context, name, opts, plugin_instances, plugins, helpers} = self
-    {ext} = helpers
+    {context, name, opts, plugin_instances, plugins, helpers} = self = @
     config = load-config name, helpers
     sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
     config[\sock] = servers: system: sys-sock unless config[\sock]?
@@ -237,28 +246,18 @@ class BaseApp
         # Initialize each plugin with given options
         p.attach.apply context, [c, h]
       catch error
-        ERR error, "failed to load plugin #{p-name.cyan}"
-        process.exit 2
-    return self.init-each-plugin done
+        return ERR_EXIT error, "failed to load plugin #{p-name.cyan}"
+    return self.init-plugins done
 
 
-  init-each-plugin: (done) ->
+  init-plugins: (done) ->
     {context, plugins, name} = @
-    f_currying = (context, plugin, cb) -->
-      try
-        {instance} = plugin
-        return instance.init.apply context, [cb]
-      catch error
-        return cb error
-    tasks = [ f_currying context, p for p in plugins ]
-    async.series tasks, (err) ->
-      return unless done? and \function == typeof done
-      if err?
-        WARN err, "failed to init all plugins" if err?
-        process.exit 2
-      else
-        INFO "#{name.yellow} initialized."
-        return done!
+    tasks = [ (PLUGIN_INIT_CURRYING context, p) for p in plugins ]
+    (err) <- async.series tasks
+    return unless done? and \function == typeof done
+    return ERR_EXIT err, "failed to init all plugins" if err?
+    INFO "#{name.yellow} initialized."
+    return done!
 
 
   get: (name) -> return @context[name]
