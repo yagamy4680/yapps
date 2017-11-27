@@ -1,12 +1,12 @@
-require! <[express fs http colors]>
+require! <[express body-parser handlebars fs http colors]>
 error_responses = require \./web_errors
+global.add-bundled-module {express}
+
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge} = global.get-bundled-modules!
 
-global.add-bundled-module {express}
 
 composeError = (req, res, name, err = null) ->
-  require! <[handlebars]>
   if error_responses[name]?
     r = error_responses[name]
     template = handlebars.compile r.message
@@ -273,8 +273,6 @@ class WebServer
     @web = web = express!
     @server = http.createServer @web
     web.set 'trust proxy', true
-
-    require! <[body-parser]>
     web.use body-parser.json!
     web.use body-parser.urlencoded extended: true
     DBG "use middleware: body-parser"

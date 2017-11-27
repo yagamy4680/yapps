@@ -230,9 +230,9 @@ class BaseApp
         l = line-emitter-currying self, p-name
         d = data-emitter-currying self, p-name
         h = line-emitter-currying: l, data-emitter-currying: d, plugin-emitter: f
-        h = ext h, helpers
+        h = lodash_merge {}, h, helpers
         c = app-name: name
-        c = ext c, config[p-name] if config[p-name]?
+        c = lodash_merge {}, c, config[p-name] if config[p-name]?
         DBG "load plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
         # Initialize each plugin with given options
         p.attach.apply context, [c, h]
