@@ -1,6 +1,6 @@
 require \source-map-support .install!
 require \yap-require-hook .install!
-require \./gm
+require \./helpers/gm
 
 if not String.prototype.starts-with?
   String.prototype.starts-with = (search-string) -> return 0 == this.index-of search-string

@@ -1,13 +1,13 @@
 require! <[path colors]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 
-helpers =
-  util: require \./util
-  resource: require \./resource
-  timer: require \./timer
-  system-uptime: require \./system-uptime
-  async-executer: require \./async-executer
-  deploy-config: require \./deploy-config
+async-executer= require \./helpers/async-executer
+deploy-config = require \./helpers/deploy-config
+resource      = require \./helpers/resource
+system-uptime = require \./helpers/system-uptime
+timer         = require \./helpers/timer
+util          = require \./helpers/util
+HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer, util}
 
 
 find-app-name = (filename) ->
@@ -17,7 +17,6 @@ find-app-name = (filename) ->
 
 create-application = (type, opts) ->
   {app-name} = module
-  {util} = helpers
   app-class = if \base == type then require \./classes/BaseApp else require \./classes/WebApp
   if not app-class?
     ERR "the app-class [#{type}] is empty-ized"
@@ -25,7 +24,7 @@ create-application = (type, opts) ->
   else
     try
       DBG "create #{type} with options: #{(JSON.stringify opts).green}"
-      return new app-class app-name, opts, helpers
+      return new app-class app-name, opts, HELPERS
     catch error
       ERR error, "failed to create application #{type.yellow}"
       return process.exit 1
