@@ -118,12 +118,30 @@ load-config = (name, helpers) ->
   return ERR_EXIT error, "failed to generate config with deployment option", 1
 
 
-PLUGIN_INIT_CURRYING = (context, plugin, cb) -->
+PLUGIN_INIT_CURRYING = (context, plugin, done) -->
+  {instance} = plugin
   try
-    {instance} = plugin
-    return instance.init.apply context, [cb]
+    return instance.init.apply context, [done]
   catch error
     return cb error
+
+
+PLUGIN_FINI_CURRYING = (context, plugin, done) -->
+  {name, instance} = plugin
+  prefix = "plugin[#{name.yellow}]"
+  if instance.fini?
+    cb = (err) ->
+      WARN err, "#{prefix}.fini with unexpected error" if err?
+      return done!
+    try
+      INFO "#{prefix}.fini() ..."
+      return instance.fini.apply context, [done]
+    catch error
+      WARN error, "#{prefix}.fini with unexpected error"
+      return done!
+  else
+    INFO "#{prefix}.fini() ... IGNORED."
+    return done!
 
 
 HOOK = (err) ->
@@ -267,6 +285,18 @@ class BaseApp
   emit: -> return @context.emit.apply @context, arguments
 
   add-plugin: (p) -> return @plugin_instances.push p
+
+  shutdown: (evt, done) ->
+    {context, plugins, name} = @
+    INFO "#{name.yellow} starts finalization with signal #{evt.red} ..."
+    xs = [ p for p in plugins ]
+    xs.reverse!
+    tasks = [ (PLUGIN_FINI_CURRYING context, p) for p in xs ]
+    (err) <- async.series tasks
+    code = if err? then 1 else 0
+    WARN err, "failed to finalized all plugins" if err?
+    INFO "#{name.yellow} finalized."
+    return done null, code
 
 
 module.exports = exports = BaseApp

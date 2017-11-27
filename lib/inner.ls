@@ -31,7 +31,6 @@ CREATE_APPLICATION = (type, opts) ->
     return ERR_EXIT error, "failed to create application #{type.yellow}"
 
 
-
 module.exports = exports =
 
   init: (app_filename) ->
@@ -48,4 +47,3 @@ module.exports = exports =
       else if \object == typeof type
         app_opts = type
     return CREATE_APPLICATION app_type, app_opts
-

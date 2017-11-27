@@ -14,4 +14,6 @@ module.exports = exports =
     require \./inner .init app_filename
 
   create-app: (type, opts) ->
-    require \./inner .create-app type, opts
+    app = require \./inner .create-app type, opts
+    signal = require \./helpers/signal
+    return signal app
