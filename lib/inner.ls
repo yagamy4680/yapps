@@ -10,30 +10,33 @@ util          = require \./helpers/util
 HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer, util}
 
 
-find-app-name = (filename) ->
+ERR_EXIT = (err, message) ->
+  ERR err, message
+  return process.exit 1
+
+
+FIND_NAME = (filename) ->
   tokens = filename.split path.sep
   return tokens[tokens.length - 2]
 
 
-create-application = (type, opts) ->
-  {app-name} = module
-  app-class = if \base == type then require \./classes/BaseApp else require \./classes/WebApp
-  if not app-class?
-    ERR "the app-class [#{type}] is empty-ized"
-    return process.exit 1
-  else
-    try
-      DBG "create #{type} with options: #{(JSON.stringify opts).green}"
-      return new app-class app-name, opts, HELPERS
-    catch error
-      ERR error, "failed to create application #{type.yellow}"
-      return process.exit 1
+CREATE_APPLICATION = (type, opts) ->
+  {name} = module
+  CLAZZ = if \base == type then require \./classes/BaseApp else require \./classes/WebApp
+  return ERR_EXIT "the class[#{type}] of application is empty-ized" unless CLAZZ?
+  try
+    DBG "create #{type} with options: #{(JSON.stringify opts).green}"
+    return new CLAZZ name, opts, HELPERS
+  catch error
+    return ERR_EXIT error, "failed to create application #{type.yellow}"
+
 
 
 module.exports = exports =
-  init: (app-filename) ->
-    module.app-name = find-app-name app-filename
-    INFO "app-name: #{module.app-name.yellow}"
+
+  init: (app_filename) ->
+    name = module.name = FIND_NAME app_filename
+    INFO "application name: #{name.yellow}"
 
   create-app: (type, opts) ->
     app_type = \base
@@ -44,5 +47,5 @@ module.exports = exports =
         app_opts = opts
       else if \object == typeof type
         app_opts = type
-    return create-application app_type, app_opts
+    return CREATE_APPLICATION app_type, app_opts
 
