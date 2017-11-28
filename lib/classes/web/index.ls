@@ -1,14 +1,15 @@
 require! <[express body-parser handlebars fs http colors]>
-error_responses = require \./web_errors
-global.add-bundled-module {express}
+ERROR_RESPONSES = require \./web-errors
+{INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN} = require \./web-middlewares
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge} = global.get-bundled-modules!
+global.add-bundled-module {express}
 
 
 composeError = (req, res, name, err = null) ->
-  if error_responses[name]?
-    r = error_responses[name]
+  if ERROR_RESPONSES[name]?
+    r = ERROR_RESPONSES[name]
     template = handlebars.compile r.message
     context = ip: req.ip, originalUrl: req.originalUrl, err: err
     msg = template context
@@ -32,17 +33,6 @@ composeData = (req, res, data, code=200) ->
     url: req.originalUrl
     data: data
   res.status code .json result
-
-
-# Middleware: detect the client's ip address is trusted or not, and save result at web_context.trusted_ip
-#
-detectClientIp = (req, res, next) ->
-  ip = req.ip
-  web_context = req.web_context
-  web_context.trusted_ip = false
-  web_context.trusted_ip = true if ip == "127.0.0.1"
-  # web_context.trusted_ip = true if ip.startsWith "192.168."
-  next!
 
 
 # Middleware: ensure only trusted ip to access the end-point
@@ -77,6 +67,8 @@ sio-authenticate-currying = (namespace, users, websocket, data, cb) -->
 sio-post-authenticate-currying = (handler, websocket, data) -->
   websocket.user = data.username
   return handler websocket
+
+
 
 
 
@@ -273,6 +265,12 @@ class WebServer
     @web = web = express!
     @server = http.createServer @web
     web.set 'trust proxy', true
+    # My middlewares
+    web.locals.shutting-down = no
+    web.use GRACEFUL_SHUTDOWN
+    web.use INITIATION
+    web.use DETECT_CLIENT_IP
+
     web.use body-parser.json!
     web.use body-parser.urlencoded extended: true
     DBG "use middleware: body-parser"
@@ -285,10 +283,6 @@ class WebServer
     else
       @.initiate-view!
       @.initiate-logger!
-
-    # My middlewares
-    web.use initiation
-    web.use detectClientIp
 
     @.initiate-plugin-views!
     @.initiate-plugin-api-endpoints!
@@ -303,12 +297,25 @@ class WebServer
     @server.listen port, host
 
 
-
-# Middleware: initiate web_context variable
-#
-initiation = (req, res, next) ->
-  req.web_context = {}
-  next!
+  stop: (done) ->
+    {web, io, server, _opts} = self = @
+    {host, port} = _opts
+    port = "#{port}"
+    INFO "shutting down Express engine"
+    web.locals.shutting-down = yes
+    # [todo] We shall also close/destroy each socket connection managed by Socket.IO package,
+    #        but now socket.io package is relatively old (1.3.7).
+    #        After upgrading to Socket.IO 2.0.0 (https://socket.io/blog/socket-io-2-0-0/)
+    #        with `uws`, then we can consider to implement this logic aspired by
+    #        https://github.com/emostar/express-graceful-exit/blob/master/lib/graceful-exit.js#L81-L106
+    #
+    if io?
+      INFO "shutting down Socket.IO engine and Http Server"
+      io.close!
+    INFO "shutting down Http Server listening #{host.yellow}:#{port.cyan}"
+    (err) <- server.close
+    WARN err, "failed to shutdown http server" if err? and err.message is not "Not running" # socketio.close() shall also close http server.
+    return done!
 
 
 
@@ -327,5 +334,9 @@ module.exports = exports =
     {util} = helpers
     dirs = [_opts.upload_path]
     dirs.push _opts.js_dest_path unless _opts.headless
-    util.createDirectories dirs, (err) -> return done err
+    return util.createDirectories dirs, done
+
+
+  fini: (done) ->
+    return module.web.stop done
 
