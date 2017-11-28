@@ -4,7 +4,7 @@
 #   - ...
 #
 const SIGNALS = <[SIGABRT SIGALRM SIGHUP SIGINT SIGTERM]>
-const SUICIDE_TIMEOUT = 5s    # How long to wait before giving up on graceful shutdown
+const SUICIDE_TIMEOUT = 10s    # How long to wait before giving up on graceful shutdown
 {DBG, INFO, WARN, ERR} = global.get-logger __filename
 
 
@@ -33,7 +33,9 @@ SIGNAL_HANDLER_CURRYING = (evt, dummy) -->
   try
     (err, code) <- app.shutdown evt
     ERR err, "peaceful shutdown for signal #{evt.red} event but known error" if err?
-    code = 0 unless code? and \number is typeof code
+    return process.exit 230 if evt is 'SIGTERM' and code is 0
+    code = 0 unless code?
+    code = 0 unless \number is typeof code
     return process.exit code
   catch error
     ERR error, "peaceful shutdown for signal #{evt.red} event but uncaught error"
