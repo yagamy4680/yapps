@@ -8,6 +8,7 @@ class GlobalModule
     self = @
     for k, v of xs
       self.modules[k] = v
+    return xs
 
 global.gm = module.exports = exports = new GlobalModule {}
 global.get-bundled-modules = -> return global.gm.modules
@@ -19,4 +20,5 @@ lodash_findIndex = require \lodash/findIndex
 lodash_sum = require \lodash/sum
 lodash_padStart = require \lodash/padStart
 lodash_padEnd = require \lodash/padEnd
-global.add-bundled-module {lodash_merge, lodash_find, lodash_findIndex, lodash_sum, lodash_padStart, lodash_padEnd}
+lodash_camelCase = require \lodash/camelCase
+global.add-bundled-module {lodash_merge, lodash_find, lodash_findIndex, lodash_sum, lodash_padStart, lodash_padEnd, lodash_camelCase}

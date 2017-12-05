@@ -64,7 +64,7 @@ module.exports = exports = class WssClient
     {ws, name, token, opts} = self = @
     args = [name, token, opts]
     index = new Date! - 0
-    return ws.emit REQ_CONFIGURE, {index: index, args: args}
+    return ws.emit REQ_CONFIGURE, {index, args}
 
 
   at-internal-connected: ->
