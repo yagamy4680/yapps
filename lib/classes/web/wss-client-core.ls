@@ -1,15 +1,14 @@
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-sioc = require \socket.io-client
 {EVENT_READY, EVENT_CONFIGURED, EVENT_DATA, REQ_CONFIGURE} = require \./wss-constants
 {REQUEST_CHANNEL, RESPONSE_CHANNEL, create-rr-commander} = require \./wss-helpers
 
 
 module.exports = exports = class WssClient
-  (@server, @channel, @name=\smith, @token=null, @opts={}, @verbose=no, @rrctx=null, @rr-opts={}) ->
+  (@sioc, @host, @channel, @name=\smith, @token=null, @opts={}, @verbose=no, @rrctx=null, @rr-opts={}) ->
     self = @
     self.configured = no
     self.rr = null
-    ws = self.ws = sioc "#{server}/#{channel}", autoConnect: yes
+    ws = self.ws = sioc "#{host}/#{channel}", autoConnect: yes
     ws.on \connect, -> return self.at-internal-connected!
     ws.on \disconnect, -> return self.at-internal-disconnected!
     ws.on EVENT_READY, -> return self.at-internal-ready!
@@ -68,8 +67,8 @@ module.exports = exports = class WssClient
 
 
   at-internal-connected: ->
-    {server, channel} = self = @
-    INFO "connected to #{server} (channel: #{channel}) via websocket protocol"
+    {host, channel} = self = @
+    INFO "connected to #{host} (channel: #{channel}) via websocket protocol"
     return @.at-connected @ws
 
 

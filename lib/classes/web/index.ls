@@ -301,6 +301,7 @@ class WebServer
     {web, io, server, _opts} = self = @
     {host, port} = _opts
     port = "#{port}"
+    return WARN "shutting down Express engine but missing" unless web?
     INFO "shutting down Express engine"
     web.locals.shutting-down = yes
     # [todo] We shall also close/destroy each socket connection managed by Socket.IO package,
@@ -312,6 +313,7 @@ class WebServer
     if io?
       INFO "shutting down Socket.IO engine and Http Server"
       io.close!
+    return WARN "shutting down Http Server listening #{host.yellow}:#{port.cyan} but missing" unless server?
     INFO "shutting down Http Server listening #{host.yellow}:#{port.cyan}"
     (err) <- server.close
     WARN err, "failed to shutdown http server" if err? and err.message is not "Not running" # socketio.close() shall also close http server.
