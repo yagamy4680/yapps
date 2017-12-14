@@ -301,7 +301,9 @@ class WebServer
     {web, io, server, _opts} = self = @
     {host, port} = _opts
     port = "#{port}"
-    return WARN "shutting down Express engine but missing" unless web?
+    if not web?
+      WARN "shutting down Express engine but missing"
+      return done!
     INFO "shutting down Express engine"
     web.locals.shutting-down = yes
     # [todo] We shall also close/destroy each socket connection managed by Socket.IO package,
