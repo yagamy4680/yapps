@@ -123,16 +123,19 @@ PLUGIN_INIT_CURRYING = (context, plugin, done) -->
   try
     return instance.init.apply context, [done]
   catch error
-    return cb error
+    return done error
 
 
 PLUGIN_FINI_CURRYING = (context, plugin, done) -->
   {name, instance} = plugin
   prefix = "plugin[#{name.yellow}]"
   if instance.fini?
+    ## maybe to be removed
+    ## -------------------------
     cb = (err) ->
       WARN err, "#{prefix}.fini with unexpected error" if err?
       return done!
+    ## -------------------------
     try
       INFO "#{prefix}.fini() ..."
       return instance.fini.apply context, [done]
@@ -211,6 +214,7 @@ class BaseApp
     return done! unless YAPPS_EXTRA_PLUGINS?
     return done! if YAPPS_EXTRA_PLUGINS is ""
     tokens = YAPPS_EXTRA_PLUGINS.split ':'
+    tokens = [ t for t in tokens when t? and t isnt "" ]
     f = (p, cb) ->
       (err, plugin) <- LOAD_MODULE p
       return cb err if err?
