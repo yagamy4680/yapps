@@ -1,4 +1,4 @@
-require! <[path async colors optimist extendify eventemitter2 yap-require-hook handlebars]>
+require! <[path async colors optimist eventemitter2 yap-require-hook handlebars]>
 global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
@@ -57,7 +57,7 @@ dump-generated-config = (config, text) ->
 
 
 load-config = (name, helpers) ->
-  {resource, ext, deploy-config} = helpers
+  {resource, deploy-config} = helpers
   opt = optimist.usage 'Usage: $0'
     .alias 'c', 'config'
     .describe 'c', 'the configuration set, might be default, bbb0, ...'
@@ -204,7 +204,6 @@ class BaseApp
     @context = new AppContext opts, helpers
     @plugins = []
     @plugin_instances = []
-    @helpers.ext = extendify!
     @.add-plugin require './sock'
 
 
