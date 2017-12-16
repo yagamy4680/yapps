@@ -3,8 +3,60 @@ ERROR_RESPONSES = require \./web-errors
 {INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN} = require \./web-middlewares
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-{lodash_merge} = global.get-bundled-modules!
+{lodash_merge, lodash_sum} = global.get-bundled-modules!
 global.add-bundled-module {express}
+
+
+PARSE_VERSION_STRING = (v) ->
+  xs = v.split '.'
+  xs.push <[0 0]> if xs.length is 1
+  xs.push <[0]> if xs.length is 2
+  xs = [ (parse-int x) * (10 ^ ((xs.length - i - 1) * 2)) for let x, i in xs ]
+  return lodash_sum xs
+
+
+MORE_THAN_OR_EQUAL_TO = (v1, v2) ->
+  x1 = PARSE_VERSION_STRING v1
+  x2 = PARSE_VERSION_STRING v2
+  return x1 >= x2
+
+
+CLOSE_SOCKET_IO = (io, done) ->
+  ##
+  # socket.io 1.3
+  #   Server.prototype.close = function() { ... }
+  #   https://github.com/socketio/socket.io/blob/1.3.7/lib/index.js#L345
+  #
+  # socket.io 1.4
+  #   Server.prototype.close = function() { ... }
+  #   https://github.com/socketio/socket.io/blob/1.4.0/lib/index.js#L349
+  #
+  # socket.io 1.5
+  #   Server.prototype.close = function() { ... }
+  #   https://github.com/socketio/socket.io/blob/1.5.0/lib/index.js#L348
+  #
+  # socket.io 1.5.1
+  #   Server.prototype.close = function() { ... }
+  #   https://github.com/socketio/socket.io/blob/1.5.1/lib/index.js#L348
+  #
+  # socket.io 1.6
+  #   Server.prototype.close = function(fn)
+  #   https://github.com/socketio/socket.io/blob/1.6.0/lib/index.js#L359
+  #
+  # socket.io 1.7
+  #   Server.prototype.close = function(fn) { ... }
+  #   https://github.com/socketio/socket.io/blob/1.7.0/lib/index.js#L399
+  #
+  # ==> Since socket.io 1.6, the server.close() function supports a
+  #     callback function.
+  #
+  if MORE_THAN_OR_EQUAL_TO (global.get-external-module-version \socket.io), \1.6
+    INFO "shutting down Socket.IO engine with callback (version 1.6+)"
+    return io.close done
+  else
+    INFO "shutting down Socket.IO engine without callback"
+    io.close!
+    return done!
 
 
 composeError = (req, res, name, err = null) ->
@@ -297,8 +349,45 @@ class WebServer
     @server.listen port, host
 
 
+  stop-socket-io: (done) ->
+    # [todo] We shall also close/destroy each socket connection managed by Socket.IO package,
+    #        but now socket.io package is relatively old (1.3.7).
+    #        After upgrading to Socket.IO 2.0.0 (https://socket.io/blog/socket-io-2-0-0/)
+    #        with `uws`, then we can consider to implement this logic aspired by
+    #        https://github.com/emostar/express-graceful-exit/blob/master/lib/graceful-exit.js#L81-L106
+    #
+    {io} = self = @
+    return done! unless io?
+    {sockets} = io.sockets
+    INFO "shutting down Socket.IO engine and Http Server"
+    (err) <- CLOSE_SOCKET_IO io
+    return done err if err?
+    # INFO "sockets? => #{sockets?}"
+    # INFO "typeof sockets => #{typeof sockets}"
+    # INFO "Array.isArray sockets => #{Array.isArray sockets}"
+    connections = null
+    if sockets? and \object is typeof sockets and not Array.isArray sockets
+      INFO "socket.io 1.4+, sockets are key-value pairs"
+      for name, c of sockets
+        INFO "socket.io[#{name.cyan}] disconnecting ..."
+        c.disconnect!
+    else if sockets? and sockets.length?
+      INFO "socket.io 1.0 ~ 1.3, sockets are array"
+      for let c, i in sockets
+        t = "#{i}"
+        INFO "socket.io[#{t.cyan}] disconnecting ..."
+        c.disconnect!
+    else
+      INFO "socket.io 0.X, using clients()"
+      for let c, i in sockets.clients!
+        t = "#{i}"
+        INFO "socket.io[#{t.cyan}] disconnecting ..."
+        c.disconnect!
+    return done!
+
+
   stop: (done) ->
-    {web, io, server, _opts} = self = @
+    {web, server, _opts} = self = @
     {host, port} = _opts
     port = "#{port}"
     if not web?
@@ -306,15 +395,8 @@ class WebServer
       return done!
     INFO "shutting down Express engine"
     web.locals.shutting-down = yes
-    # [todo] We shall also close/destroy each socket connection managed by Socket.IO package,
-    #        but now socket.io package is relatively old (1.3.7).
-    #        After upgrading to Socket.IO 2.0.0 (https://socket.io/blog/socket-io-2-0-0/)
-    #        with `uws`, then we can consider to implement this logic aspired by
-    #        https://github.com/emostar/express-graceful-exit/blob/master/lib/graceful-exit.js#L81-L106
-    #
-    if io?
-      INFO "shutting down Socket.IO engine and Http Server"
-      io.close!
+    (io-close-err) <- self.stop-socket-io
+    WARN io-close-err, "failed to shutdown Socket.IO engine" if io-close-err?
     return WARN "shutting down Http Server listening #{host.yellow}:#{port.cyan} but missing" unless server?
     INFO "shutting down Http Server listening #{host.yellow}:#{port.cyan}"
     (err) <- server.close

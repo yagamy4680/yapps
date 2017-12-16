@@ -13,6 +13,7 @@ class GlobalModule
 global.gm = module.exports = exports = new GlobalModule {}
 global.get-bundled-modules = -> return global.gm.modules
 global.add-bundled-module = (xs) -> return global.gm.add-module xs
+global.get-external-module-version = (name) -> return (require "#{name}/package.json").version
 
 lodash_merge = require \lodash/merge
 lodash_find = require \lodash/find
