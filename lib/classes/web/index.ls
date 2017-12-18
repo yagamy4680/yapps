@@ -192,13 +192,13 @@ class WebServer
     @web.use web-middleware
 
 
-  initiate-jade-engine: (jade-path) ->
-    require! <[jade]>
-    return WARN "jade is empty-ized" unless jade?
-    return WARN "no view engine (the template directory #{jade-path.cyan} does not exist)" unless fs.existsSync jade-path
-    @web.set 'views', jade-path
-    @web.set 'view engine', \jade
-    return INFO "set view engine: jade (#{jade-path.cyan})"
+  initiate-pug-engine: (pug-path) ->
+    require! <[pug]>
+    return WARN "pug is empty-ized" unless pug?
+    return WARN "no view engine (the template directory #{pug-path.cyan} does not exist)" unless fs.existsSync pug-path
+    @web.set 'views', pug-path
+    @web.set 'view engine', \pug
+    return INFO "set view engine: pug (#{pug-path.cyan})"
 
 
   initiate-favicon: (favicon-path) ->
@@ -230,7 +230,7 @@ class WebServer
     return if headless? and headless
     {resource} = sys-helpers
     {js_dest_path} = _opts
-    @.initiate-jade-engine resource.resolveResourcePath \assets, \views
+    @.initiate-pug-engine resource.resolveResourcePath \assets, \views
     @.initiate-favicon resource.resolveResourcePath \assets, 'img/favicon.ico'
     @.initiate-static \img, resource.resolveResourcePath \assets, \img
     @.initiate-static \css, resource.resolveResourcePath \assets, \css
@@ -248,13 +248,13 @@ class WebServer
 
   initiate-plugin-views: ->
     {web, routes} = @
-    jade-path = web.get 'views'
+    pug-path = web.get 'views'
     for let name, m of routes
       web.use "/#{name}", m
       INFO "add /#{name}"
-      if jade-path?
-        m.set 'views', jade-path
-        m.set 'view engine', \jade
+      if pug-path?
+        m.set 'views', pug-path
+        m.set 'view engine', \pug
 
 
   initiate-plugin-api-endpoints: ->
