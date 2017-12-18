@@ -2,7 +2,7 @@ require! <[colors]>
 
 class GlobalModule
   (@opts) ->
-    @modules = colors: colors
+    @modules = {colors}
 
   add-module: (xs) ->
     self = @

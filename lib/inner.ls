@@ -6,9 +6,11 @@ deploy-config = require \./helpers/deploy-config
 resource      = require \./helpers/resource
 system-uptime = require \./helpers/system-uptime
 timer         = require \./helpers/timer
-util          = require \./helpers/util
-HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer, util}
+#util          = require \./helpers/utils
+#HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer, util}
+HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer}
 
+global.add-bundled-module {yapps-utils: require \./helpers/utils}
 
 ERR_EXIT = (err, message) ->
   ERR err, message

@@ -3,7 +3,7 @@ ERROR_RESPONSES = require \./web-errors
 {INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN} = require \./web-middlewares
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-{lodash_merge, lodash_sum} = global.get-bundled-modules!
+{lodash_merge, lodash_sum, yapps-utils} = global.get-bundled-modules!
 global.add-bundled-module {express}
 
 
@@ -153,8 +153,6 @@ class WebServer
       ws: {}
 
     # Replace with user's preferred options
-    # fields = [ k for k, v of @_opts ]
-    # @_opts = util.copy-object @_opts, @opts, fields
     @_opts = lodash_merge @_opts, @opts
 
     # Directory for compiled assets (e.g. Livescript to Javascript)
@@ -417,10 +415,9 @@ module.exports = exports =
     {helpers} = module
     {web} = @
     {_opts} = web
-    {util} = helpers
     dirs = [_opts.upload_path]
     dirs.push _opts.js_dest_path unless _opts.headless
-    return util.createDirectories dirs, done
+    return yapps-utils.CREATE_DIRECTORIES dirs, done
 
 
   fini: (done) ->
