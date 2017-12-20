@@ -3,7 +3,7 @@ ERROR_RESPONSES = require \./web-errors
 {INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN} = require \./web-middlewares
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-{lodash_merge, lodash_sum, yapps-utils} = global.get-bundled-modules!
+{lodash_merge, lodash_sum, yapps_utils} = global.get-bundled-modules!
 global.add-bundled-module {express}
 
 
@@ -417,7 +417,7 @@ module.exports = exports =
     {_opts} = web
     dirs = [_opts.upload_path]
     dirs.push _opts.js_dest_path unless _opts.headless
-    return yapps-utils.CREATE_DIRECTORIES dirs, done
+    return yapps_utils.CREATE_DIRECTORIES dirs, done
 
 
   fini: (done) ->

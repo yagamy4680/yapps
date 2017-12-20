@@ -10,7 +10,7 @@ timer         = require \./helpers/timer
 #HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer, util}
 HELPERS       = {async-executer, deploy-config, resource, system-uptime, timer}
 
-global.add-bundled-module {yapps-utils: require \./helpers/utils}
+global.add-bundled-module {yapps_utils: require \./helpers/utils}
 
 ERR_EXIT = (err, message) ->
   ERR err, message

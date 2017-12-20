@@ -78,7 +78,7 @@ CREATE_BUFFER_WITH_HEXES_SMARTLY = (input) ->
 
 
 
-buffer-utils = {
+buffer_utils = {
   CREATE_BUFFER_WITH_INTS,
   CREATE_BUFFER_WITH_STRING,
   CREATE_BUFFER_WITH_HEXES_SMARTLY,
@@ -88,4 +88,4 @@ buffer-utils = {
 module.node-version = parse-float process.version.substring 1
 
 # module.exports = exports = {create-directories, copy-object}
-module.exports = exports = {CREATE_DIRECTORIES, buffer-utils}
+module.exports = exports = {CREATE_DIRECTORIES, buffer_utils}
