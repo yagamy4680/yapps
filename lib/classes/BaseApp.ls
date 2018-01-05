@@ -22,6 +22,7 @@ apply-cmd-config = (settings, type) ->
     tokens = s.split "="
     prop = tokens[0]
     value = tokens[1]
+    INFO "applying #{prop} = #{value}"
     if '"' == value.charAt(0) and '"' == value.charAt(value.length - 1)
       value = value.substr 1, value.length - 2
     else
@@ -37,7 +38,7 @@ apply-cmd-config = (settings, type) ->
       | "boolean"   => config[lastName] = "true" == value.toLowerCase!
       | "str_array" => config[lastName] = value.split ','
       | otherwise   => config[lastName] = value
-    INFO "applying #{prop} = #{config[lastName]}"
+    INFO "applied #{prop} = #{config[lastName]}"
 
 
 dump-generated-config = (config, text) ->
