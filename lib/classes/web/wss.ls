@@ -73,7 +73,6 @@
 #[TODO]
 # - measure the performance differences (cpu loads of both sensor-web/conscious-agent, and entire system, average in 10 minutes)
 #
-require! <[colors uid]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {EVENT_READY, EVENT_CONFIGURED, EVENT_DATA, REQ_CONFIGURE} = require \./wss-constants
 {REQUEST_CHANNEL, RESPONSE_CHANNEL, create-rr-commander} = require \./wss-helpers
@@ -150,17 +149,15 @@ class WsHandler
 
 
   authenticate: (name, token, done) ->
-    {ip, manager} = self = @
+    {id, ip, manager} = self = @
     return done -10, "missing name" unless name?
     self.name = name
     self.token = token
-    t = manager.get-service-token!
-    return done! if ip is \127.0.0.1
-    return done -11, "missing token from client #{ip}" unless token?
-    return done -12, "no valid token at server" unless t?
-    return done -13, "invalid token" unless token is t
-    self.DEBUG "accept service token #{token.yellow} for client #{ip.magenta}"
-    manager.clear-token!
+    (err, user) <- manager.authenticate name, token, ip
+    return done err[0], err[1] if err?
+    {token, name} = self.user = user
+    token = "null" unless token?
+    self.DEBUG "accept client[#{id}]: username:#{name.cyan} token:#{token.yellow} ip:#{ip.magenta}"
     return done!
 
 
@@ -176,6 +173,7 @@ class WsHandler
     {verbose, ws} = self = @
     {index, args} = p
     [name, token, opts] = args
+    self.DEBUG "at-ws-configure(): name:#{name} token:#{token} opts=>#{JSON.stringify opts}"
     index = -1 unless index?
     (code, message) <- self.authenticate name, token
     return self.rsp-configure index, code, message if code?
@@ -238,7 +236,7 @@ class WsHandler
   ## `err` indicates successful or failed to process configurations
   ## `rrctx` is optional, as context object of request-and-response commander.
   ##
-  process_configure: (opts, done) -> return
+  process_configure: (opts, done) -> return done!
 
   ## Process the emit data from client.
   ##
@@ -308,11 +306,38 @@ class WsManager
     return self.remove id
 
 
-  get-service-token: ->
-    return @wss.get-service-token!
+  authenticate: (username, token, ip, done) ->
+    return @wss.authenticate @, username, token, ip, done
 
-  clear-token: ->
-    return @wss.clear-token!
+
+
+class Authenticator
+  (@dummy) ->
+    return
+
+  authenticate: (manager, username, token, ip, done) ->
+    name = username
+    user = {name, token, ip}
+    return done [-11, "missing token from client #{ip}"] unless token?
+    return done null, user
+
+
+
+class DefaultAuthenticator extends Authenticator
+  (@dummy) ->
+    super ...
+    @token = \ABCD
+
+  authenticate: (manager, username, token, ip, done) ->
+    self = @
+    name = username
+    user = {name, token, ip}
+    return done null, user if ip is \127.0.0.1
+    (err) <- super username, token, ip
+    return done err if err?
+    return done [-12, "no valid token at server"] unless self.token?
+    return done [-13, "invalid token"] unless token is self.token
+    return done null, user
 
 
 
@@ -320,56 +345,17 @@ class Wss
   (@opts) ->
     self = @
     self.service-name = \wss
-    self.generate-service-token!
     self.managers = {}
-    self.token = \ABCD
-    /*
-    self.token = null
-    self.token-expires = 0
-    f = -> return self.at-timeout!
-    self.timer = setInterval f, 1000ms
-    */
+    self.authenticator = new DefaultAuthenticator {}
 
-  /*
-  at-timeout: ->
-    {service-name, token} = self = @
-    return if self.token-expires <= 0
-    self.token-expires = self.token-expires - 1
-    INFO "#{service-name}: check token expiry: #{token.yellow}/#{self.token-expires}s"
-    return unless self.token-expires <= 0
-    self.clear-token!
-  */
-
-  clear-token: ->
-    return
-    /*
-    {service-name, token} = self = @
-    token = "null" unless token?
-    INFO "#{service-name}: clear token #{token.yellow}"
-    self.token = null
-    self.token-expires = 0
-    */
-
-
-  get-service-token: ->
-    return @token
-
-
-  generate-service-token: (expire=TOKEN_DEFAULT_EXPIRES, token=null) ->
-    {service-name} = self = @
-    self.token-expires = if expire > 0 then expire else TOKEN_DEFAULT_EXPIRES
-    self.token = token
-    self.token = (uid 6).to-upper-case! unless self.token?
-    INFO "#{service-name}: use new token #{self.token.yellow} for #{self.token-expires}s"
-    return self.token
-
+  authenticate: (manager, username, token, ip, done) ->
+    return @authenticator.authenticate manager, username, token, ip, done
 
   create-manager: (app, name, opts, handler-clazz, ctx={}) ->
     {managers, service-name} = self = @
     return new WsManager self, app, name, opts, handler-clazz, ctx unless managers[name]?
     ERR "#{service-name}: the websocket channel #{name} is already created!!"
     return null
-
 
 
 module.wss = new Wss {}
@@ -382,6 +368,10 @@ module.exports = exports =
   generate-service-token: (expire=null, token=null) ->
     return module.wss.generate-service-token expire, token
 
+  set-authenticator: (a) ->
+    return module.wss.authenticator = a
+
   HandlerClazz: WsHandler
 
+  Authenticator: Authenticator
 
