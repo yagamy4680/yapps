@@ -333,7 +333,7 @@ class DefaultAuthenticator extends Authenticator
     name = username
     user = {name, token, ip}
     return done null, user if ip is \127.0.0.1
-    (err) <- super username, token, ip
+    (err) <- super manager, username, token, ip
     return done err if err?
     return done [-12, "no valid token at server"] unless self.token?
     return done [-13, "invalid token"] unless token is self.token
