@@ -33,12 +33,16 @@ apply-cmd-config = (settings, type) ->
     for n in names
       config = config[n]
     switch type
+      | "object"    => config[lastName] = JSON.parse value
       | "string"    => config[lastName] = value
       | "integer"   => config[lastName] = parseInt value
       | "boolean"   => config[lastName] = "true" == value.toLowerCase!
       | "str_array" => config[lastName] = value.split ','
       | otherwise   => config[lastName] = value
-    INFO "applied #{prop} = #{config[lastName]}"
+    xs = config[lastName]
+    text = "#{xs}"
+    text = JSON.stringify xs if \object is typeof xs
+    INFO "applied #{prop} = #{xs}"
 
 
 dump-generated-config = (config, text) ->
@@ -74,6 +78,8 @@ load-config = (name, helpers) ->
     .describe 'i', 'overwrite a configuration with int value, e.g. -b "behavior.notify.influxPeriod=smith"'
     .alias 'a', 'config_str_array'
     .describe 'a', 'overwrite a configuration with array of strings with delimiter character `COMMA`, e.g. -b "system.influxServer.clusters=aa.test.net,bb.test.net,cc.test.net"'
+    .alias 'o', 'config_object'
+    .describe 'o', 'overwrite a configuration with json object string, e.g. -b "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
     .alias 'v', 'verbose'
     .describe 'v', 'verbose message output (level is changed to `debug`)'
     .default 'v', false
@@ -93,6 +99,7 @@ load-config = (name, helpers) ->
   return ERR_EXIT "failed to load #{argv.config}", null, 1 unless json?
   global.config = json
 
+  apply-cmd-config argv.o, "object"
   apply-cmd-config argv.s, "string"
   apply-cmd-config argv.i, "integer"
   apply-cmd-config argv.b, "boolean"
