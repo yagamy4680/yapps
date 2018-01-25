@@ -9,6 +9,17 @@ ERR_EXIT = (err, message, code=2) ->
   ERR err, message
   return process.exit code
 
+
+PARSE_CMD_CONFIG_VALUE = (s, type) ->
+  [prop, value] = s.split "="
+  return {prop, value} unless type is \object
+  return {prop, value} unless prop[0] is \^
+  [prop, value] = (s.substring 1).split ":"
+  version = parse-int (process.version.substring 1 .split '.' .shift!)
+  value = if version >= 5 then (Buffer.from value, \base64) else (Buffer value, \base64)
+  value = value.to-string \ascii
+  return {prop, value}
+
 #
 # Apply command-line settings on the global configuration.
 #
@@ -19,9 +30,7 @@ apply-cmd-config = (settings, type) ->
   if !settings then return
   settings = if settings instanceof Array then settings else [settings]
   for s in settings
-    tokens = s.split "="
-    prop = tokens[0]
-    value = tokens[1]
+    {prop, value} = PARSE_CMD_CONFIG_VALUE s, type
     INFO "applying #{prop} = #{value}"
     if '"' == value.charAt(0) and '"' == value.charAt(value.length - 1)
       value = value.substr 1, value.length - 2
