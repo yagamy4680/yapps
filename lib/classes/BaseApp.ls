@@ -254,7 +254,16 @@ class BaseApp
     config[\sock] = servers: system: sys-sock unless config[\sock]?
     config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
     {YAPPS_DUMP_LOADED_CONFIG} = process.env
+    INFO "app-config:"
     dump-generated-config config, (JSON.stringify config, null, ' ') unless YAPPS_DUMP_LOADED_CONFIG is \false
+
+    app-package-json-path = "#{helpers.resource.getAppDir!}/package.json"
+    app-package-json = require app-package-json-path
+    INFO "app-package-json:"
+    dump-generated-config app-package-json, (JSON.stringify app-package-json, null, ' ') unless YAPPS_DUMP_LOADED_CONFIG is \false
+
+    app-name = name
+    plugin-default-settings = {app-name, app-package-json}
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
@@ -278,8 +287,7 @@ class BaseApp
         d = data-emitter-currying self, p-name
         h = line-emitter-currying: l, data-emitter-currying: d, plugin-emitter: f
         h = lodash_merge {}, h, helpers
-        c = app-name: name
-        c = lodash_merge {}, c, config[p-name] if config[p-name]?
+        c = lodash_merge {}, plugin-default-settings, config[p-name] if config[p-name]?
         DBG "load plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
         # Initialize each plugin with given options
         p.attach.apply context, [c, h]
