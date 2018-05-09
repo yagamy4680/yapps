@@ -2,11 +2,11 @@ require \source-map-support .install!
 require \yap-require-hook .install!
 require \./helpers/gm
 
-if not String.prototype.starts-with?
-  String.prototype.starts-with = (search-string) -> return 0 == this.index-of search-string
+STR_STARTS_WITH = (str) -> return 0 is this.index-of str
+STR_ENDS_WITH = (str) -> return str is this.substring this.length - str.length, this.length
 
-if not String.prototype.ends-with?
-  String.prototype.ends-with = (str) -> return str == this.substring this.length - str.length, this.length
+String.prototype.starts-with = STR_STARTS_WITH unless String.prototype.starts-with?
+String.prototype.ends-with = STR_ENDS_WITH unless String.prototype.ends-with?
 
 module.exports = exports =
   init: (app_filename) ->
