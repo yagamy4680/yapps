@@ -59,17 +59,16 @@ CLOSE_SOCKET_IO = (io, done) ->
     return done!
 
 
-composeError = (req, res, name, err = null) ->
-  if ERROR_RESPONSES[name]?
-    r = ERROR_RESPONSES[name]
+composeError = (req, res, name, err=null, data=null) ->
+  r = ERROR_RESPONSES[name]
+  if r?
     template = handlebars.compile r.message
-    context = ip: req.ip, originalUrl: req.originalUrl, err: err
-    msg = template context
-    result =
-      code: r.code
-      error: name
-      url: req.originalUrl
-      message: msg
+    {ip, originalUrl} = req
+    msg = template {ip, originalUrl, err}
+    result = code: r.code, error: name, url: originalUrl, message: msg
+    result['data'] = data if data?
+    INFO "err => #{err}"
+    INFO "data => #{JSON.stringify data}"
     ERR "#{req.method} #{colors.yellow req.original-url} #{colors.red name} ==> #{(JSON.stringify result).cyan}"
     res.status r.status .json result
   else

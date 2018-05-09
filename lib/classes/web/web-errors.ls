@@ -73,3 +73,13 @@ module.exports = exports =
     status: 404
     code: -1
     message: "service {{originalUrl}} is not implemented yet"
+
+  resource_not_implemented:
+    status: 501
+    code: -5001
+    message: "Resource Unimplemented: {{err}}"
+
+  remote_agent_error:
+    status: 600
+    code: -6001
+    message: "{{err}}"
