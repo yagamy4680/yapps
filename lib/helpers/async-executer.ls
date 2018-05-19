@@ -1,5 +1,6 @@
 require! <[async colors uid]>
 {DBG} = global.get-logger __filename
+global.add-bundled-module {async, uid}
 
 loggerCurrying = (executor, task_name, logger, message) -->
   # prefix = "[#{colors.gray executor.type}.#{colors.gray executor.id}.#{colors.gray task_name}]"
