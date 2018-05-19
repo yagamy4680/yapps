@@ -7,6 +7,25 @@ ERROR_RESPONSES = require \./web-errors
 global.add-bundled-module {express}
 
 
+CORS = (req, res, next) ->
+  # referer = req.get 'Referer'
+  # Website you wish to allow to connect
+  res.header 'Access-Control-Allow-Origin', 'http://localhost:6040'
+
+  # Request methods you wish to allow
+  res.header 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE'
+
+  # Request headers you wish to allow
+  res.header 'Access-Control-Allow-Headers', 'X-Requested-With,content-type'
+
+  # Set to true if you need the website to include cookies in the requests sent
+  # to the API (e.g. in case you use sessions)
+  res.setHeader 'Access-Control-Allow-Credentials', yes
+
+  # Pass to next layer of middleware
+  return next();
+
+
 PARSE_VERSION_STRING = (v) ->
   xs = v.split '.'
   xs.push <[0 0]> if xs.length is 1
@@ -139,10 +158,11 @@ class WebServer
       trusted_ip_or_user: trusted_ip_or_user
 
     # Default options
-    @_opts =
+    DEFAULTS =
       port: 6010
       host: \0.0.0.0
       headless: yes
+      cors: no
       view_verbose: no
       api: 1
       upload_path: resource.resolveWorkPath 'work', 'web/upload'
@@ -152,7 +172,11 @@ class WebServer
       ws: {}
 
     # Replace with user's preferred options
-    @_opts = lodash_merge @_opts, @opts
+    @_opts = lodash_merge {}, DEFAULTS, @opts
+
+    INFO "user's configs: #{JSON.stringify opts}"
+    INFO "default configs: #{JSON.stringify DEFAULTS}"
+    INFO "merged configs: #{JSON.stringify @_opts}"
 
     # Directory for compiled assets (e.g. Livescript to Javascript)
     @_opts.js_dest_path = resource.resolveWorkPath \work, 'web/dest' unless @_opts.headless
@@ -249,7 +273,7 @@ class WebServer
     for let name, m of routes
       web.use "/#{name}", m
       INFO "add /#{name}"
-      if pug-path?
+      if pug-path? and m.set?
         m.set 'views', pug-path
         m.set 'view engine', \pug
 
@@ -274,14 +298,18 @@ class WebServer
 
   initiate-plugin-websockets: ->
     {server, _opts} = @
-    {port, host} = _opts
+    {port, host, cors} = _opts
     sio = null
     sio = require \socket.io
+    configs = {}
+    # configs['origins'] = '*:*'
+    # configs['transports'] = ['websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling', 'polling']
     return WARN "socket.io is empty-ized" unless sio?
     sa = require \socketio-auth
     WARN "socketio-auth is empty-ized" unless sa?
     INFO "_opts[ws] = #{JSON.stringify _opts}"
-    io = @io = sio server
+    INFO "configs = #{JSON.stringify configs}"
+    io = @io = sio server, configs
     # Register different handler for incoming web-sockets in different
     # namespace.
     for let name, handler of @wss
@@ -314,6 +342,8 @@ class WebServer
     @web = web = express!
     @server = http.createServer @web
     web.set 'trust proxy', true
+    # web.use CORS
+
     # My middlewares
     web.locals.shutting-down = no
     web.use GRACEFUL_SHUTDOWN
