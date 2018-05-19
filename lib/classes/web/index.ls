@@ -4,7 +4,7 @@ ERROR_RESPONSES = require \./web-errors
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_sum, yapps_utils} = global.get-bundled-modules!
-global.add-bundled-module {express}
+global.add-bundled-module {express, body-parser, handlebars}
 
 
 CORS = (req, res, next) ->
@@ -161,6 +161,7 @@ class WebServer
     DEFAULTS =
       port: 6010
       host: \0.0.0.0
+      auth: yes
       headless: yes
       cors: no
       view_verbose: no
@@ -305,7 +306,8 @@ class WebServer
     # configs['origins'] = '*:*'
     # configs['transports'] = ['websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling', 'polling']
     return WARN "socket.io is empty-ized" unless sio?
-    sa = require \socketio-auth
+    sa = null
+    sa = require \socketio-auth if _opts.auth
     WARN "socketio-auth is empty-ized" unless sa?
     INFO "_opts[ws] = #{JSON.stringify _opts}"
     INFO "configs = #{JSON.stringify configs}"
