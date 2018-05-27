@@ -1,5 +1,7 @@
-require! <[path async colors optimist eventemitter2 yap-require-hook handlebars]>
-global.add-bundled-module {async, optimist, eventemitter2, handlebars}
+require! <[path yap-require-hook]>
+require! <[async colors optimist eventemitter2 handlebars semver prettyjson]>
+global.add-bundled-module {async, optimist, eventemitter2, handlebars, semver}
+global.add-bundled-module {prettyjson} if prettyjson?
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_find, lodash_findIndex, lodash_sum} = get-bundled-modules!
@@ -55,7 +57,6 @@ apply-cmd-config = (settings, type) ->
 
 
 dump-generated-config = (config, text) ->
-  require! <[prettyjson]>
   return console.error "generated configuration: \n#{text.gray}" unless prettyjson?
   text = prettyjson.render config, do
     keysColor: \gray
