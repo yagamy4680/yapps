@@ -1,6 +1,8 @@
 require! <[fs]>
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 
+const BOOTS_TIMESTAMP_LOGGING_DIR = "/opt/ys/share/timestamp"
+const BOOTS_ENV_VARIABLE = "YAPPS_TOE_LINUX_BOOTS"
 
 RET_VALUE = (value, message) ->
   WARN message
@@ -36,14 +38,50 @@ class SystemUptime
   (@opts) ->
     {system} = module
     self = @
+    self.boots = 0
     self.app = GET_PROCESS_UPTIME!
     self.system = system
     self.diff = self.system - self.app
-    self.boots = 0  # [todo] read `boots` from environment variable or timestamp logging dir: /opt/ys/share/timestamp
-    INFO "boots: #{self.boots}ms"
+    return
+
+  read-boots-from-env: ->
+    boots = process.env[BOOTS_ENV_VARIABLE]
+    return no unless boots?
+    return no if boots is ""
+    boots = parse-int boots
+    return no if boots is NaN
+    @boots = boots
+    INFO "detects boots from #{BOOTS_ENV_VARIABLE.yellow}: #{@boots}"
+    return yes
+
+  read-boots-from-fs: (done) ->
+    self = @
+    (err, dirs) <- fs.readdir BOOTS_TIMESTAMP_LOGGING_DIR
+    if err?
+      dir = "0" # fallback to "0" when running the plugin on non-TOE device, e.g. Mac OS X (developer's machine)
+      message = "(fallback to '0' because of err: #{err.to-string! .red})"
+    else
+      dirs = dirs.sort!
+      dir = dirs.pop!
+      dir = "0" unless dir?
+    self.boots = parse-int dir
+    self.boots = 1 if self.boots is 0     # for legacy, because old yapps-scripts still uses `000000` as first-time of boots up.
+    self.boots = 0 if self.boots is NaN
+    INFO "detect boots from #{BOOTS_TIMESTAMP_LOGGING_DIR.yellow}: #{self.boots} #{message}"
+    return done!
+
+  init-boots-var: (done) ->
+    return done! if @.read-boots-from-env!
+    return @.read-boots-from-fs done
+
+  init: (done) ->
+    self = @
+    (err) <- @.init-boots-var
+    return done err if err?
+    INFO "boots: #{self.boots} times"
     INFO "system: #{self.system}ms"
     INFO "app: #{self.app}ms"
-    return
+    return done!
 
   now: ->
     {boots, diff} = self = @
