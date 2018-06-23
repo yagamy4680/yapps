@@ -82,7 +82,7 @@ class DataJob
     self.dbg "#{prefix}: end consumption (total #{duration.cyan}ms)"
     return done! unless err?
     self.consumed = no
-    ERR "#{prefix}: end consumption with error => #{err}"
+    ERR err, "#{prefix}: end consumption with error"
     self.retries = self.retries + 1
     return done err
 
@@ -97,7 +97,7 @@ class DataJob
     self.writing = yes
     APPLY_CONDITIONALLY opts.job.serializer, data, (s-err, buffer) ->
       self.writing = no
-      return ERR "#{prefix}: serialize data but error => #{s-err}" if s-err?
+      return ERR s-err, "#{prefix}: serialize data but error" if s-err?
       start = (new Date!) - 0
       self.writing = yes
       parent.backend_write name, format, timestamp, buffer, (write-err) ->
@@ -106,7 +106,7 @@ class DataJob
         self.dbg "#{prefix}: store #{buffer.length} bytes with #{duration.cyan}ms"
         self.serialized = yes
         return unless write-err?
-        return ERR "#{prefix}: store #{buffer.length} bytes but err => #{write-err}"
+        return ERR write-err, "#{prefix}: store #{buffer.length} bytes but err"
     return self
 
   cleanup: ->
@@ -120,7 +120,7 @@ class DataJob
       duration = "#{(new Date!) - start}"
       self.dbg "#{prefix}: clean-up takes #{duration.cyan}ms"
       return unless err?
-      return ERR "#{prefix}: clean-up but err => #{err}"
+      return ERR err, "#{prefix}: clean-up but error"
     return self
 
   get-job-state: ->

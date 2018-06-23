@@ -1,5 +1,7 @@
 #!/usr/bin/env lsc
 #
+require! <[moment colors]>
+require \../../yap-simple-logger/lib/yap-simple-logger.ls .init __filename, __filename, moment, colors
 
 global.get-bundled-modules = ->
   lodash_merge = require \lodash/merge
@@ -10,7 +12,6 @@ global.get-bundled-modules = ->
   async = require \async
   return {async, lodash_merge, lodash_sortBy, lodash_findIndex, lodash_padStart, lodash_padEnd}
 
-logger = require \../lib/dummy/logger
 SystemUptime = require \../lib/helpers/system-uptime
 DataJobQueue = require \../lib/helpers/data-job-queue
 backend = require \./common-fs-backend
