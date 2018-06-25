@@ -36,7 +36,8 @@ check = (name, format, timestamp) ->
   return done!
 
 write = (name, format, timestamp, buffer=null, done=null) ->
-  return path.basename (COMPOSE_FILEPATH name, format, timestamp), ".#{format}" unless buffer? and done?
+  # return path.basename (COMPOSE_FILEPATH name, format, timestamp), ".#{format}" unless buffer? and done?
+  return COMPOSE_FILEPATH name, format, timestamp unless buffer? and done?
   f = -> return fs.writeFile (COMPOSE_FILEPATH name, format, timestamp), buffer, done
   setTimeout f, 3000ms
 
