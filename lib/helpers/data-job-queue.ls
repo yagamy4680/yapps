@@ -1,3 +1,5 @@
+require! <[path]>
+
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_sortBy, lodash_findIndex, lodash_padStart, async} = global.get-bundled-modules!
 
@@ -75,14 +77,17 @@ class DataJob
     return done load-err if load-err?
     start1 = (new Date!) - 0
     self.consuming = yes
-    (err) <- consumer name, format, timestamp, data
+    (err) <- consumer name, format, timestamp, data, retries
     self.consuming = no
     self.consumed = yes
     duration = "#{(new Date!) - start1}"
     self.dbg "#{prefix}: end consumption (total #{duration.cyan}ms)"
     return done! unless err?
     self.consumed = no
-    ERR err, "#{prefix}: end consumption with error"
+    if \string is typeof err
+      ERR "#{prefix}: end consumption with error => #{err.red}" if parent.verbose
+    else
+      ERR err, "#{prefix}: end consumption with error" if parent.verbose
     self.retries = self.retries + 1
     return done err
 
@@ -166,9 +171,9 @@ class DataJobQueue
     @consuming = no
     @consume-timeout = intervals.consume
 
-  dump-existed-jobs: ->
+  dump-existed-jobs: (forced=no) ->
     {verbose, prefix, queue} = self = @
-    return unless verbose
+    return unless verbose and not forced
     return INFO "#{prefix}: existing jobs: 0" if queue.length is 0
     INFO "#{prefix}: existing jobs:"
     xs = lodash_sortBy @finished-jobs, <[boots uptime epoch]>
@@ -200,7 +205,7 @@ class DataJobQueue
     (bkend-list-err, timestamps) <- backend.list name, format
     return done bkend-list-err if bkend-list-err?
     self.queue = [ (new DataJob self, t, null, yes) for t in timestamps ]
-    self.dump-existed-jobs!
+    self.dump-existed-jobs yes
     t = -> return self.at-check self.check-interval
     self.check-timer = setInterval t, self.check-interval
     INFO "#{prefix}: initiate a regular check timer with #{self.check-interval}ms"
@@ -215,7 +220,7 @@ class DataJobQueue
     idx = lodash_findIndex xs, (x) -> return (not x.consuming) and (not x.writing)
     return WARN "#{prefix}: all jobs are busy in either consuming or writing" if idx is -1
     [j] = xs.splice idx, 1
-    INFO "#{prefix}: select jobs[#{idx}] => #{j.ts.green}"
+    INFO "#{prefix}: select jobs[#{idx}] => #{j.ts.green}" if verbose
     return WARN "#{prefix}: all jobs are busy in either consuming or writing" if j.consuming or j.writing
     self.queue = xs
     self.consuming = yes

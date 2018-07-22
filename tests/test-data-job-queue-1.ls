@@ -33,7 +33,7 @@ DESERIALIZER = (buffer, done) ->
     return done error
   return done null, json
 
-CONSUMER = (name, format, timestamp, data, done) ->
+CONSUMER = (name, format, timestamp, data, retries, done) ->
   {boots, uptime, epoch} = timestamp
   len = if Buffer.isBuffer data or \string is typeof data then data.length else (JSON.stringify data).length
   INFO "consuming #{boots}-#{uptime}-#{epoch}.#{format}, with #{len} bytes."
