@@ -1,10 +1,10 @@
-require! <[path yap-require-hook]>
-require! <[async colors optimist eventemitter2 handlebars semver prettyjson]>
-global.add-bundled-module {async, optimist, eventemitter2, handlebars, semver}
-global.add-bundled-module {prettyjson} if prettyjson?
+require! <[path colors yap-require-hook]>
+require! <[async optimist eventemitter2 handlebars]>
+global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
-{lodash_merge, lodash_find, lodash_findIndex, lodash_sum} = get-bundled-modules!
+{lodash_merge, semver, yapps_utils} = get-bundled-modules!
+{PRINT_PRETTY_JSON} = yapps_utils.debug
 
 
 ERR_EXIT = (err, message, code=2) ->
@@ -17,8 +17,7 @@ PARSE_CMD_CONFIG_VALUE = (s, type) ->
   return {prop, value} unless type is \object
   return {prop, value} unless prop[0] is \^
   [prop, value] = (s.substring 1).split ":"
-  version = parse-int (process.version.substring 1 .split '.' .shift!)
-  value = if version >= 5 then (Buffer.from value, \base64) else (Buffer value, \base64)
+  value = if semver.satisfies process.version, '>=5.0' then (Buffer.from value, \base64) else (Buffer value, \base64)
   value = value.to-string \ascii
   return {prop, value}
 
@@ -54,21 +53,6 @@ apply-cmd-config = (settings, type) ->
     text = "#{xs}"
     text = JSON.stringify xs if \object is typeof xs
     INFO "applied #{prop} = #{xs}"
-
-
-dump-generated-config = (config, text) ->
-  return console.error "generated configuration: \n#{text.gray}" unless prettyjson?
-  text = prettyjson.render config, do
-    keysColor: \gray
-    dashColor: \green
-    stringColor: \yellow
-    numberColor: \cyan
-    defaultIndentation: 4
-  xs = text.split '\n'
-  console.error "generated configration:"
-  [ console.error "\t#{x}" for x in xs ]
-  console.error ""
-  # return console.error "generated configuration:\n#{text}\n"
 
 
 load-config = (name, helpers) ->
@@ -191,6 +175,10 @@ class AppContext
       maxListeners: 20
     return
 
+  init: (done) ->
+    {system-uptime} = self = @
+    return system-uptime.init done
+
   on: -> return @server.on.apply @server, arguments
   emit: -> return @server.emit.apply @server, arguments
   add-listener: -> return @server.add-listener.apply @server, arguments
@@ -255,13 +243,12 @@ class BaseApp
     config[\sock] = servers: system: sys-sock unless config[\sock]?
     config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
     {YAPPS_DUMP_LOADED_CONFIG} = process.env
-    INFO "app-config:"
-    dump-generated-config config, (JSON.stringify config, null, ' ') unless YAPPS_DUMP_LOADED_CONFIG is \false
+    dump-config = YAPPS_DUMP_LOADED_CONFIG is \true
+    PRINT_PRETTY_JSON "app-config", config unless dump-config
 
     app-package-json-path = "#{helpers.resource.getAppDir!}/package.json"
     app-package-json = require app-package-json-path
-    INFO "app-package-json:"
-    dump-generated-config app-package-json, (JSON.stringify app-package-json, null, ' ') unless YAPPS_DUMP_LOADED_CONFIG is \false
+    PRINT_PRETTY_JSON "app-package-json", app-package-json unless dump-config
 
     app-name = name
     plugin-default-settings = {app-name, app-package-json}
@@ -299,10 +286,14 @@ class BaseApp
 
   init-plugins: (done) ->
     {context, plugins, name} = @
+    callbackable = done? and \function is typeof done
+    (c-init-err) <- context.init
+    return unless callbackable
+    return ERR_EXIT c-init-err, "failed to init context" if c-init-err?
     tasks = [ (PLUGIN_INIT_CURRYING context, p) for p in plugins ]
-    (err) <- async.series tasks
-    return unless done? and \function == typeof done
-    return ERR_EXIT err, "failed to init all plugins" if err?
+    (p-init-err) <- async.series tasks
+    return unless callbackable
+    return ERR_EXIT p-init-err, "failed to init all plugins" if p-init-err?
     INFO "#{name.yellow} initialized."
     return done!
 

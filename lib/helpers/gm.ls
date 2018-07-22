@@ -1,4 +1,5 @@
-require! <[colors path fs]>
+require! <[path fs]>
+require! <[colors mkdirp prettyjson semver]>
 
 class GlobalModule
   (@opts) ->
@@ -79,15 +80,20 @@ class PluginModuleHelper
     return ["invalid spec.yaml"] unless yaml?
     return [null, yaml]
 
-
-
-
 create_module_helper = (pmodule) -> return new PluginModuleHelper pmodule
 
 
+
+
+
 global.add-bundled-module {
+  semver,
   lodash_merge, lodash_find, lodash_findIndex, lodash_sum, lodash_sortBy,
   lodash_padStart, lodash_padEnd, lodash_camelCase
   yaml_loader, yaml_safeLoad,
-  uuid_v1, uuid_v4, create_module_helper
+  mkdirp,
+  uuid_v1, uuid_v4,
+  create_module_helper
 }
+
+global.add-bundled-module {prettyjson} if prettyjson?
