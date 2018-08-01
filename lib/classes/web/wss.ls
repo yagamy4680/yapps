@@ -160,14 +160,18 @@ class WsHandler
     self.DEBUG "accept client[#{id}]: username:#{name.cyan} token:#{token.yellow} ip:#{ip.magenta}"
     return done!
 
-
-  rsp-configure: (index, code=0, err=null) ->
+  rsp-configure-success: (index, info) ->
     {ws} = self = @
-    return ws.emit EVENT_CONFIGURED, {index: index, code: code} if code is 0
-    ws.emit EVENT_CONFIGURED, {index: index, code: code, err: err}
+    code = 0
+    payload = {index, code}
+    payload['info'] = info if info?
+    return ws.emit EVENT_CONFIGURED, payload
+
+  rsp-configure-failure: (index, code, err) ->
+    {ws} = self = @
+    ws.emit EVENT_CONFIGURED, {index, code, err}
     f = -> ws.disconnect!
     return setTimeout f, 1000ms
-
 
   at-ws-configure: (p) ->
     {verbose, ws} = self = @
@@ -176,12 +180,13 @@ class WsHandler
     self.DEBUG "at-ws-configure(): name:#{name} token:#{token} opts=>#{JSON.stringify opts}"
     index = -1 unless index?
     (code, message) <- self.authenticate name, token
-    return self.rsp-configure index, code, message if code?
-    (err, rrctx) <- self.process_configure opts
-    return self.rsp-configure index, -2, err if err?
+    return self.rsp-configure-failure index, code, message if code?
+    (err, rrctx, info) <- self.process_configure opts
+    return self.rsp-configure-failure index, -2, err if err?
     self.configured = yes
     self.initiate-rr-commander rrctx if rrctx?
-    return self.rsp-configure index
+    self.INFO "at-ws-configure(): success with info => #{JSON.stringify info}" if info?
+    return self.rsp-configure-success index, info
 
 
   at-ws-data: (p) ->

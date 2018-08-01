@@ -74,9 +74,9 @@ module.exports = exports = class WssClient
 
   at-internal-configured: (p) ->
     {ws} = self = @
-    {index, code, err} = p
+    {index, code, err, info} = p
     self.configured = code is 0
-    self.at-configured ws, code, err
+    self.at-configured ws, code, err, info
     return ws.disconnect! unless code is 0
 
 
