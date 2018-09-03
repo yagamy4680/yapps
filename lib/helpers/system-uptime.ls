@@ -83,6 +83,32 @@ class SystemUptime
     INFO "app: #{self.app}ms"
     return done!
 
+  synchronize: (ctx) ->
+    {boots, app, system, diff} = ctx
+    INFO "calibration: boots from #{@boots} to #{boots}"
+    INFO "calibration: diff from #{@diff} to #{diff}"
+    @boots = boots
+    /**
+     * Time Calibration Algorithm:
+     *
+        r-sys = GET_SYSTEM_UPTIME!
+        r-app = GET_PROCESS_UPTIME!
+        r-diff = r-sys - r-app
+        now = GET_PROCESS_UPTIME! + r-diff
+
+        process-uptime-diff = r-app - GET_PROCESS_UPTIME(startup)
+        now = GET_PROCESS_UPTIME! + r-app - GET_PROCESS_UPTIME(startup) + (r-sys - r-app)
+            = GET_PROCESS_UPTIME! + (r-sys - GET_PROCESS_UPTIME(startup))
+     *
+     */
+    @diff = system - GET_PROCESS_UPTIME!
+
+  to-json: (realtime=no) ->
+    {boots, app, system, diff} = @
+    app = GET_PROCESS_UPTIME! if realtime
+    system = GET_SYSTEM_UPTIME! if realtime
+    return {boots, app, system, diff}
+
   now: ->
     {boots, diff} = self = @
     uptime = GET_PROCESS_UPTIME! + diff
