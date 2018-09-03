@@ -27,7 +27,7 @@ PARSE_CMD_CONFIG_VALUE = (s, type) ->
 # E.g. "-i influxdb.server.port=13" will be applied to set
 #      global.config["influxdb"]["server"]["port"] = 13
 #
-apply-cmd-config = (settings, type) ->
+APPLY_CMD_CONFIG = (settings, type) ->
   if !settings then return
   settings = if settings instanceof Array then settings else [settings]
   for s in settings
@@ -55,32 +55,32 @@ apply-cmd-config = (settings, type) ->
     INFO "applied #{prop} = #{xs}"
 
 
-load-config = (name, helpers) ->
+LOAD_CONFIG = (name, helpers) ->
   {resource, deploy-config} = helpers
   opt = optimist.usage 'Usage: $0'
-    .alias 'c', 'config'
-    .describe 'c', 'the configuration set, might be default, bbb0, ...'
-    .default 'c', 'default'
-    .alias 'd', 'deployment'
-    .describe 'd', 'deployment mode or not'
-    .default 'd', no
-    .alias 'b', 'config_bool'
-    .describe 'b', 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.secure=false"'
-    .alias 's', 'config_string'
-    .describe 's', 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.user=smith"'
-    .alias 'i', 'config_int'
-    .describe 'i', 'overwrite a configuration with int value, e.g. -b "behavior.notify.influxPeriod=smith"'
-    .alias 'a', 'config_str_array'
-    .describe 'a', 'overwrite a configuration with array of strings with delimiter character `COMMA`, e.g. -b "system.influxServer.clusters=aa.test.net,bb.test.net,cc.test.net"'
-    .alias 'o', 'config_object'
-    .describe 'o', 'overwrite a configuration with json object string, e.g. -b "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
-    .alias 'v', 'verbose'
-    .describe 'v', 'verbose message output (level is changed to `debug`)'
-    .default 'v', false
-    .alias 'q', 'quiet'
-    .describe 'q', 'disable logging outputs to local file, but still outputs to stderr'
-    .default 'q', false
-    .boolean <[h v]>
+    .alias    \c, \config
+    .describe \c, 'the configuration set, might be default, bbb0, ...'
+    .default  \c, \default
+    .alias    \d, \deployment
+    .describe \d, 'deployment mode or not'
+    .default  \d, no
+    .alias    \v, \verbose
+    .describe \v, 'verbose message output (level is changed to `debug`)'
+    .default  \v, false
+    .alias    \q, \quiet
+    .describe \q, 'disable logging outputs to local file, but still outputs to stderr'
+    .default  \q, false
+    .alias    \b, 'config_bool'
+    .describe \b, 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.secure=false"'
+    .alias    \s, 'config_string'
+    .describe \s, 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.user=smith"'
+    .alias    \i, 'config_int'
+    .describe \i, 'overwrite a configuration with int value, e.g. -b "behavior.notify.influxPeriod=smith"'
+    .alias    \a, 'config_str_array'
+    .describe \a, 'overwrite a configuration with array of strings with delimiter character `COMMA`, e.g. -b "system.influxServer.clusters=aa.test.net,bb.test.net,cc.test.net"'
+    .alias    \o, 'config_object'
+    .describe \o, 'overwrite a configuration with json object string, e.g. -b "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
+    .boolean <[h v q]>
   argv = global.argv = opt.argv
 
   if argv.h
@@ -93,11 +93,11 @@ load-config = (name, helpers) ->
   return ERR_EXIT "failed to load #{argv.config}", null, 1 unless json?
   global.config = json
 
-  apply-cmd-config argv.o, "object"
-  apply-cmd-config argv.s, "string"
-  apply-cmd-config argv.i, "integer"
-  apply-cmd-config argv.b, "boolean"
-  apply-cmd-config argv.a, "str_array"
+  APPLY_CMD_CONFIG argv.o, "object"
+  APPLY_CMD_CONFIG argv.s, "string"
+  APPLY_CMD_CONFIG argv.i, "integer"
+  APPLY_CMD_CONFIG argv.b, "boolean"
+  APPLY_CMD_CONFIG argv.a, "str_array"
 
   {config} = global
   return config if argv.d
@@ -238,7 +238,7 @@ class BaseApp
 
   init-internal: (done) ->
     {context, name, opts, plugin_instances, plugins, helpers} = self = @
-    config = load-config name, helpers
+    config = LOAD_CONFIG name, helpers
     sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
     config[\sock] = servers: system: sys-sock unless config[\sock]?
     config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
