@@ -151,12 +151,6 @@ PLUGIN_FINI_CURRYING = (context, plugin, done) -->
   {name, instance} = plugin
   prefix = "plugin[#{name.yellow}]"
   if instance.fini?
-    ## maybe to be removed
-    ## -------------------------
-    cb = (err) ->
-      WARN err, "#{prefix}.fini with unexpected error" if err?
-      return done!
-    ## -------------------------
     try
       INFO "#{prefix}.fini() ..."
       return instance.fini.apply context, [done]
