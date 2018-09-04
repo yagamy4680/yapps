@@ -22,7 +22,6 @@ TRANSFORM_INTEGER = (object, dir) ->
   return object[k] = parse-int x
 
 
-
 TRANSFORM_BOOLEAN = (object, dir) ->
   tokens = dir.split "."
   tokens.shift!
@@ -64,4 +63,3 @@ TRANSFORM = (env, json, text, context) ->
 
 
 module.exports = exports = TRANSFORM
-

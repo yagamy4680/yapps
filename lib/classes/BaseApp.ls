@@ -1,10 +1,12 @@
-require! <[path colors yap-require-hook]>
+require! <[fs path colors mkdirp yap-require-hook]>
 require! <[async optimist eventemitter2 handlebars]>
 global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, semver, yapps_utils} = get-bundled-modules!
 {PRINT_PRETTY_JSON} = yapps_utils.debug
+
+const DEFAULT_PROCESS_RUNTIME_FILEPATH = "/tmp/yapps"
 
 
 ERR_EXIT = (err, message, code=2) ->
@@ -55,12 +57,18 @@ APPLY_CMD_CONFIG = (settings, type) ->
     INFO "applied #{prop} = #{xs}"
 
 
-LOAD_CONFIG = (name, helpers) ->
+LOAD_CONFIG = (name, helpers, ctx) ->
   {resource, deploy-config} = helpers
   opt = optimist.usage 'Usage: $0'
     .alias    \c, \config
-    .describe \c, 'the configuration set, might be default, bbb0, ...'
+    .describe \c, 'the name of deployment configuration, e.g. production, development, testing...'
     .default  \c, \default
+    .alias    \p, \pidfile
+    .describe \p, 'PID file'
+    .default  \p, null
+    .alias    \u, \unixsock
+    .describe \u, ''
+    .default  \u, null
     .alias    \d, \deployment
     .describe \d, 'deployment mode or not'
     .default  \d, no
@@ -73,13 +81,13 @@ LOAD_CONFIG = (name, helpers) ->
     .alias    \b, 'config_bool'
     .describe \b, 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.secure=false"'
     .alias    \s, 'config_string'
-    .describe \s, 'overwrite a configuration with boolean value, e.g. -b "system.influxServer.user=smith"'
+    .describe \s, 'overwrite a configuration with string value, e.g. -s "system.influxServer.user=smith"'
     .alias    \i, 'config_int'
-    .describe \i, 'overwrite a configuration with int value, e.g. -b "behavior.notify.influxPeriod=smith"'
+    .describe \i, 'overwrite a configuration with int value, e.g. -i "behavior.notify.influxPeriod=3000"'
     .alias    \a, 'config_str_array'
-    .describe \a, 'overwrite a configuration with array of strings with delimiter character `COMMA`, e.g. -b "system.influxServer.clusters=aa.test.net,bb.test.net,cc.test.net"'
+    .describe \a, 'overwrite a configuration with array of strings with delimiter character `COMMA`, e.g. -a "system.influxServer.clusters=aa.test.net,bb.test.net,cc.test.net"'
     .alias    \o, 'config_object'
-    .describe \o, 'overwrite a configuration with json object string, e.g. -b "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
+    .describe \o, 'overwrite a configuration with json object string, e.g. -o "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
     .boolean <[h v q]>
   argv = global.argv = opt.argv
 
@@ -92,14 +100,26 @@ LOAD_CONFIG = (name, helpers) ->
   {json, text, source} = resource.loadConfig argv.config
   return ERR_EXIT "failed to load #{argv.config}", null, 1 unless json?
   global.config = json
-
   APPLY_CMD_CONFIG argv.o, "object"
   APPLY_CMD_CONFIG argv.s, "string"
   APPLY_CMD_CONFIG argv.i, "integer"
   APPLY_CMD_CONFIG argv.b, "boolean"
   APPLY_CMD_CONFIG argv.a, "str_array"
-
   {config} = global
+
+  sockpath = argv.u
+  sockpath = "#{DEFAULT_PROCESS_RUNTIME_FILEPATH}/#{name}.sock" unless sockpath?
+  uri = "unix://#{sockpath}"
+  line = yes
+  system = {uri, line}
+  config[\sock] = servers: {system} unless config[\sock]?
+  config[\sock][\servers][\system] = system unless config[\sock][\servers][\system]?
+
+  pidfile = argv.p
+  pidfile = "#{DEFAULT_PROCESS_RUNTIME_FILEPATH}/#{name}.pid" unless pidfile?
+  ppidfile = "#{pidfile}.ppid"
+  config[\yapps] = process: {pidfile, ppidfile}
+
   return config if argv.d
   return config unless deploy-config?
 
@@ -113,9 +133,8 @@ LOAD_CONFIG = (name, helpers) ->
   deploy-environment = YAPPS_ENV if YAPPS_ENV? and YAPPS_ENV in <[production testing development]>
   deploy-environment = BOARD_PROFILE_ENV if BOARD_PROFILE_ENV? and BOARD_PROFILE_ENV in <[production testing development]>
   colors.enabled = yes if deploy-environment is \development
-  context = APP_NAME: name, APP_DIR: resource.getAppDir!, WORK_DIR: resource.getWorkDir!
   text = JSON.stringify config, null, '  '
-  {error, output} = deploy-config deploy-environment, config, text, context
+  {error, output} = deploy-config deploy-environment, config, text, ctx
   return output unless error?
   return ERR_EXIT error, "failed to generate config with deployment option", 1
 
@@ -147,6 +166,25 @@ PLUGIN_FINI_CURRYING = (context, plugin, done) -->
   else
     INFO "#{prefix}.fini() ... IGNORED."
     return done!
+
+
+DATA_EMITTER_CURRYING = (app, plugin-name, resource-name, channel-name, context, data) -->
+  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{data.length} bytes"
+  evts = [plugin-name, resource-name, channel-name, \data]
+  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
+  app.emit evts, data, src, context
+  return data
+
+
+LINE_EMITTER_CURRYING = (app, plugin-name, resource-name, channel-name, context, line) -->
+  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{line}"
+  evts = [plugin-name, resource-name, channel-name, \line]
+  line = "#{line}"
+  line = line.substring 0, line.length - 1 if line.ends-with '\n'
+  line = line.substring 0, line.length - 1 if line.ends-with '\r'
+  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
+  app.emit evts, line, src, context
+  return line
 
 
 HOOK = (err) ->
@@ -185,26 +223,6 @@ class AppContext
   remove-listener: -> return @server.remove-listener.apply @server, arguments
 
 
-
-data-emitter-currying = (app, plugin-name, resource-name, channel-name, context, data) -->
-  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{data.length} bytes"
-  evts = [plugin-name, resource-name, channel-name, \data]
-  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
-  app.emit evts, data, src, context
-  return data
-
-
-line-emitter-currying = (app, plugin-name, resource-name, channel-name, context, line) -->
-  # DBG "#{plugin-name}::#{resource-name}::#{channel-name} => #{line}"
-  evts = [plugin-name, resource-name, channel-name, \line]
-  line = "#{line}"
-  line = line.substring 0, line.length - 1 if line.ends-with '\n'
-  line = line.substring 0, line.length - 1 if line.ends-with '\r'
-  src = plugin-name: plugin-name, resource-name: resource-name, channel-name: channel-name
-  app.emit evts, line, src, context
-  return line
-
-
 class BaseApp
   (@name, @opts, @helpers) ->
     @context = new AppContext opts, helpers
@@ -212,8 +230,38 @@ class BaseApp
     @plugin_instances = []
     @.add-plugin require './sock'
 
+  load-configs: (done) ->
+    {name, helpers} = self = @
+    {resource} = helpers
+    DUMPING = process.env.YAPPS_DUMP_LOADED_CONFIG is \true
+    APP_NAME = app-name = name
+    APP_DIR = resource.getAppDir!
+    WORK_DIR = resource.getWorkDir!
+    try
+      @configs = configs = LOAD_CONFIG name, helpers, {APP_NAME, APP_DIR, WORK_DIR}
+      @package-json = package-json = require "#{APP_DIR}/package.json"
+      PRINT_PRETTY_JSON "app-configs", configs unless DUMPING
+      PRINT_PRETTY_JSON "app-package-json", package-json unless DUMPING
+      return done!
+    catch error
+      return done error
 
-  init-extra-plugins: (done) ->
+  init-process-files: (done) ->
+    {pidfile, ppidfile} = @configs.yapps.process
+    dir = path.dirname pidfile
+    (dir-err) <- mkdirp dir
+    return done dir-err if dir-err?
+    text = "#{process.pid}"
+    INFO "writing #{pidfile.cyan} with #{text.green}"
+    (pid-err) <- fs.writeFile pidfile, text
+    return done pid-err if pid-err?
+    text = "#{process.ppid}"
+    INFO "writing #{ppidfile.cyan} with #{text.green}"
+    (ppid-err) <- fs.writeFile ppidfile, text
+    return done ppid-err if ppid-err?
+    return done!
+
+  find-extra-plugins: (done) ->
     self = @
     {YAPPS_EXTRA_PLUGINS} = process.env
     return done! unless YAPPS_EXTRA_PLUGINS?
@@ -227,31 +275,11 @@ class BaseApp
       return cb!
     return async.eachSeries tokens, f, done
 
-
-  init: (done) ->
-    self = @
-    (ee) <- self.init-extra-plugins
-    return done HOOK ee if ee?
-    (ie) <- self.init-internal
-    return done HOOK ie
-
-
-  init-internal: (done) ->
-    {context, name, opts, plugin_instances, plugins, helpers} = self = @
-    config = LOAD_CONFIG name, helpers
-    sys-sock = uri: "unix:///tmp/yap/#{name}.system.sock", line: yes
-    config[\sock] = servers: system: sys-sock unless config[\sock]?
-    config[\sock][\servers][\system] = sys-sock unless config[\sock][\servers][\system]?
-    {YAPPS_DUMP_LOADED_CONFIG} = process.env
-    dump-config = YAPPS_DUMP_LOADED_CONFIG is \true
-    PRINT_PRETTY_JSON "app-config", config unless dump-config
-
-    app-package-json-path = "#{helpers.resource.getAppDir!}/package.json"
-    app-package-json = require app-package-json-path
-    PRINT_PRETTY_JSON "app-package-json", app-package-json unless dump-config
-
+  attach-plugins: (done) ->
+    {context, name, plugin_instances, plugins, configs, helpers} = self = @
     app-name = name
-    plugin-default-settings = {app-name, app-package-json}
+    app-package-json = @package-json
+    default-settings = {app-name, app-package-json}
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
@@ -268,21 +296,19 @@ class BaseApp
           args = Array.prototype.slice.call arguments, 1
           args = [evts] ++ args
           return app.emit.apply app, args
-
       try
         f = app-plugin-emitter.emit.bind app-plugin-emitter
-        l = line-emitter-currying self, p-name
-        d = data-emitter-currying self, p-name
+        l = LINE_EMITTER_CURRYING self, p-name
+        d = DATA_EMITTER_CURRYING self, p-name
         h = line-emitter-currying: l, data-emitter-currying: d, plugin-emitter: f
         h = lodash_merge {}, h, helpers
-        c = lodash_merge {}, plugin-default-settings, config[p-name] if config[p-name]?
-        DBG "load plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
+        c = lodash_merge {}, default-settings, configs[p-name] if configs[p-name]?
+        DBG "attach plugin #{p-name.cyan} with options: #{(JSON.stringify c).green}"
         # Initialize each plugin with given options
         p.attach.apply context, [c, h]
       catch error
-        return ERR_EXIT error, "failed to load plugin #{p-name.cyan}"
-    return self.init-plugins done
-
+        return ERR_EXIT error, "failed to attach plugin #{p-name.cyan}"
+    return done!
 
   init-plugins: (done) ->
     {context, plugins, name} = @
@@ -297,6 +323,18 @@ class BaseApp
     INFO "#{name.yellow} initialized."
     return done!
 
+  init: (done) ->
+    self = @
+    (ce) <- self.load-configs
+    return done HOOK ce if ce?
+    (pfe) <- self.init-process-files
+    return done HOOK pfe if pfe?
+    (fe) <- self.find-extra-plugins
+    return done HOOK fe if fe?
+    (ae) <- self.attach-plugins
+    return done HOOK ae if ae?
+    (ie) <- self.init-plugins
+    return done HOOK ie
 
   get: (name) -> return @context[name]
 
