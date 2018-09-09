@@ -3,6 +3,7 @@ require! <[net mkdirp fs path byline url]>
 {lodash_findIndex, lodash_merge} = global.get-bundled-modules!
 
 const DEFAULT_CONFIGS = uri: '', line: yes
+const DEFAULT_DELIMITER = '\t'
 
 
 class SocketConnection
@@ -10,7 +11,7 @@ class SocketConnection
     self = @
     {remote-address, remote-family, remote-port} = c
     @remote-address = remote-address
-    @remote = remote = "#{remote-address}:#{remote-port}"
+    @remote = remote = if remote-address? and remote-port? then "#{remote-address}:#{remote-port}" else "localhost"
     @prefix = prefix = "sock[#{name.cyan}][#{remote.magenta}]"
     remote-family = "unknown" unless remote-family?
     INFO "#{prefix}: incoming-connection => #{remote-family.yellow}"
@@ -41,6 +42,29 @@ class SocketConnection
 
   destroy: ->
     return @c.destroy.apply @c, arguments
+
+
+class CommandSocketConnection extends SocketConnection
+  (@server, @name, @c) ->
+    super ...
+    self = @
+    self.reader = byline c
+    self.reader.on \data, (line) -> return self.at-line line
+
+  at-line: (line) ->
+    return unless line?
+    line = line.toString!
+    xs = line.split DEFAULT_DELIMITER
+    cmd = xs.shift!
+    return @.at-command cmd, xs
+
+  at-command: (cmd, args) ->
+    {prefix} = self = @
+    cmd.trim!
+    name = "process_#{cmd}"
+    func = self[name]
+    return INFO "#{prefix}: #{name} function is unavailable to process command" unless func?
+    return func.apply self, args
 
 
 class SocketServer
@@ -109,7 +133,7 @@ class SocketServer
     INFO "#{prefix}: disconnected, and remove #{remote.magenta} from slots[#{idx}]"
     return connections.splice idx, 1 if idx?
 
-  write-line-tokens: (tokens=[], datetime=no, delimiter='\t') ->
+  write-line-tokens: (tokens=[], datetime=no, delimiter=DEFAULT_DELIMITER) ->
     xs = if datetime then ([(new Date!).toISOString!] ++ tokens) else tokens
     return @.write-line (xs.join delimiter)
 
@@ -132,4 +156,4 @@ class SocketServer
     return @connections
 
 
-module.exports = exports = {SocketServer, SocketConnection}
+module.exports = exports = {SocketServer, SocketConnection, CommandSocketConnection}
