@@ -11,19 +11,27 @@ class SocketConnection
     {remote-address, remote-family, remote-port} = c
     @remote-address = remote-address
     @remote = remote = "#{remote-address}:#{remote-port}"
+    @prefix = prefix = "sock[#{name.cyan}][#{remote.magenta}]"
     remote-family = "unknown" unless remote-family?
-    INFO "#{name.cyan} incoming-connection: #{remote.magenta}, #{remote-family.yellow}"
+    INFO "#{prefix}: incoming-connection => #{remote-family.yellow}"
     c.on \end, -> return self.at-end!
     c.on \error, (err) -> return self.at-error err
 
-  at-error: (err) ->
-    {server, name, remote} = self = @
-    ERR err, "#{name.cyan} connections[#{remote}] throws error, remove it from connnection-list, err: #{err}"
+  finalize: ->
+    {server, prefix, c} = self = @
+    INFO "#{prefix}: disconnected"
+    c.removeAllListeners \error
+    c.removeAllListeners \data
+    c.removeAllListeners \end
     return server.remove-connection self
 
+  at-error: (err) ->
+    {prefix, remote} = self = @
+    ERR err, "#{prefix}: throws error, remove it from connnection-list, err: #{err}"
+    return self.finalize!
+
   at-end: ->
-    {server} = self = @
-    return server.remove-connection self
+    return @.finalize!
 
   write: ->
     return @c.write.apply @c, arguments
@@ -42,43 +50,43 @@ class SocketServer
     {uri} = @config
     @uri = uri
     @connections = []
+    @prefix = prefix = "sock[#{name.cyan}]"
     server = @server = net.create-server (c) -> return self.incoming-connection c
-    server.on \listen, -> DBG "#{name.cyan} (#{uri.cyan}) is listening"
-    server.on \end, -> INFO "#{name.cyan} closed"
-    server.on \error, (err) -> ERR err, "#{name.cyan} unexpected error"
+    server.on \listen, -> DBG "#{prefix}: (#{uri.cyan}) is listening"
+    server.on \end, -> INFO "#{prefix}: closed"
+    server.on \error, (err) -> ERR err, "#{prefix}: unexpected error"
 
   start: (done) ->
-    {name, uri, server, verbose} = self = @
-    INFO "[#{name.cyan}] #{uri.green}" if verbose
+    {prefix, uri, server, verbose} = self = @
+    INFO "#{prefix}: #{uri.green}" if verbose
     {protocol, hostname, port, pathname} = url.parse uri
     self.protocol = protocol
     if protocol == "tcp:"
       err0 <- server.listen port, hostname
-      return done "[#{name.cyan}] failed to create tcp socket server, err: #{err0}" if err0?
-      INFO "[#{name.cyan}] listening #{uri.cyan}"
+      return done "#{prefix}: failed to create tcp socket server, err: #{err0}" if err0?
+      INFO "#{prefix}: listening #{uri.cyan}"
       return done!
     else if protocol == "unix:"
       dir = path.dirname pathname
       err0 <- mkdirp dir
-      return done "[#{name.cyan}] failed to create dir #{dir}, err: #{err0}" if err0?
-      INFO "[#{name.cyan}] successfully create #{dir}" if verbose
+      return done "#{prefix}: failed to create dir #{dir}, err: #{err0}" if err0?
+      INFO "#{prefix}: successfully create #{dir}" if verbose
       err1, stats <- fs.stat pathname
-      return done "[#{name.cyan}] #{pathname} exists but not a domain socket file" if (not err1?) and (not stats.is-socket!)
+      return done "#{prefix}: #{pathname} exists but not a domain socket file" if (not err1?) and (not stats.is-socket!)
       fs.unlink-sync pathname unless err1?
-      INFO "[#{name.cyan}] successfully cleanup previous domain socket" if verbose
+      INFO "#{prefix}: successfully cleanup previous domain socket" if verbose
       err2 <- server.listen pathname
-      return done "[#{name.cyan}] failed to create domain socket, err: #{err2}" if err2?
+      return done "#{prefix}: failed to create domain socket, err: #{err2}" if err2?
       INFO "listening #{pathname.cyan}"
       return done!
     else
       return done "unsupported protocol scheme: #{protocol}"
 
   stop: (done) ->
-    {name, connections, server, uri} = self = @
-    prefix = "[#{name.cyan}]"
+    {prefix, connections, server, uri} = self = @
     for let s, i in connections
       try
-        INFO "#{prefix} closing connections[#{i}] from #{s.remote-address}"
+        INFO "#{prefix}: closing connections[#{i}] from #{s.remote-address}"
         s.destroy!
         s.end!
       catch error
@@ -95,10 +103,10 @@ class SocketServer
     connections.push s
 
   remove-connection: (s) ->
-    {connections, name} = self = @
+    {connections, prefix} = self = @
     {remote} = s
     idx = lodash_findIndex connections, s
-    INFO "#{name.cyan} #{idx}(#{remote.magenta}) disconnected"
+    INFO "#{prefix}: disconnected, and remove #{remote.magenta} from slots[#{idx}]"
     return connections.splice idx, 1 if idx?
 
   write-line-tokens: (tokens=[], datetime=no, delimiter='\t') ->
@@ -106,8 +114,8 @@ class SocketServer
     return @.write-line (xs.join delimiter)
 
   write-line: (line) ->
-    {connections, verbose} = @
-    INFO "line: #{line}" if verbose
+    {connections, verbose, prefix} = @
+    INFO "#{prefix} => line: #{line}" if verbose
     text = "#{line}\n"
     [ (s.write text) for s in connections ]
 
