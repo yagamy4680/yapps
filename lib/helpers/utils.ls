@@ -118,7 +118,8 @@ debug = {COLORIZED, PRETTIZE_KVS, PRINT_PRETTY_JSON}
 
 
 DataJobQueue = require \./data-job-queue
-classes = {DataJobQueue}
+{SocketServer, SocketConnection} = sock = require \./sock
+classes = {DataJobQueue, SocketServer, SocketConnection}
 
 module.node-version = parse-float process.version.substring 1
 module.exports = exports = {CREATE_DIRECTORIES, buffer_utils, debug, classes}
