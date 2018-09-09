@@ -4,6 +4,7 @@ global.add-bundled-module {async, optimist, eventemitter2, handlebars}
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, semver, yapps_utils} = get-bundled-modules!
+{SocketServer, CommandSocketConnection} = yapps_utils.classes
 {PRINT_PRETTY_JSON} = yapps_utils.debug
 
 const DEFAULT_PROCESS_RUNTIME_FILEPATH = "/tmp/yapps"
@@ -111,9 +112,9 @@ LOAD_CONFIG = (name, helpers, ctx) ->
   sockpath = "#{DEFAULT_PROCESS_RUNTIME_FILEPATH}/#{name}.sock" unless sockpath?
   uri = "unix://#{sockpath}"
   line = yes
-  system = {uri, line}
-  config[\sock] = servers: {system} unless config[\sock]?
-  config[\sock][\servers][\system] = system unless config[\sock][\servers][\system]?
+  ctrl = {uri, line}
+  config[\sock] = servers: {ctrl} unless config[\sock]?
+  config[\sock][\servers][\ctrl] = ctrl unless config[\sock][\servers][\ctrl]?
 
   pidfile = argv.p
   pidfile = "#{DEFAULT_PROCESS_RUNTIME_FILEPATH}/#{name}.pid" unless pidfile?
@@ -217,12 +218,33 @@ class AppContext
   remove-listener: -> return @server.remove-listener.apply @server, arguments
 
 
+class AppCommandSock extends CommandSocketConnection
+  (@server, @name, @c) ->
+    super ...
+    @app = server.parent
+
+  process_restart: ->
+    {prefix, app} = self = @
+    INFO "#{prefix}: receive restart command!!"
+    return WARN "already shutdowning ..." if app.shutdowning
+    (err) <- app.shutdown \CTRL_RESTART
+    return process.exit 96  # refer to definitions in `signal.ls`
+
+  process_shutdown: ->
+    {prefix, app} = self = @
+    INFO "#{prefix}: receive shutdown command!!"
+    return WARN "already shutdowning ..." if app.shutdowning
+    (err) <- app.shutdown \CTRL_SHUTDOWN
+    return process.exit 0
+
+
 class BaseApp
   (@name, @opts, @helpers) ->
     @context = new AppContext opts, helpers
     @plugins = []
     @plugin_instances = []
     @.add-plugin require './sock'
+    @shutdowning = no
 
   load-configs: (done) ->
     {name, helpers} = self = @
@@ -233,12 +255,18 @@ class BaseApp
     WORK_DIR = resource.getWorkDir!
     try
       @configs = configs = LOAD_CONFIG name, helpers, {APP_NAME, APP_DIR, WORK_DIR}
+      @ctrl-opts = configs[\sock][\servers][\ctrl]
+      delete configs[\sock][\servers][\ctrl]
       @package-json = package-json = require "#{APP_DIR}/package.json"
       PRINT_PRETTY_JSON "app-configs", configs unless DUMPING
       PRINT_PRETTY_JSON "app-package-json", package-json unless DUMPING
       return done!
     catch error
       return done error
+
+  init-control-sock: (done) ->
+    ctrl = @ctrl = new SocketServer @, \ctrl, no, AppCommandSock, @ctrl-opts
+    return @ctrl.start done
 
   init-process-files: (done) ->
     {pidfile, ppidfile} = @configs.yapps.process
@@ -328,7 +356,10 @@ class BaseApp
     (ae) <- self.attach-plugins
     return done HOOK ae if ae?
     (ie) <- self.init-plugins
-    return done HOOK ie
+    return done HOOK ie if ie?
+    (ue) <- self.init-control-sock
+    return done HOOK ue if ue?
+    return done HOOK null
 
   get: (name) -> return @context[name]
 
@@ -339,16 +370,19 @@ class BaseApp
   add-plugin: (p) -> return @plugin_instances.push p
 
   shutdown: (evt, done) ->
-    {context, plugins, name} = @
+    {context, plugins, name, ctrl, shutdowning} = @
+    return done "already shutdowning..." if shutdowning
+    shutdowning = yes
     INFO "#{name.yellow} starts finalization with signal #{evt.red} ..."
+    f = (cb) -> return ctrl.stop cb
     xs = [ p for p in plugins ]
     xs.reverse!
     tasks = [ (PLUGIN_FINI_CURRYING context, p) for p in xs ]
+    tasks.unshift f
     (err) <- async.series tasks
-    code = if err? then 1 else 0
     WARN err, "failed to finalized all plugins" if err?
     INFO "#{name.yellow} finalized."
-    return done null, code
+    return done err
 
 
 module.exports = exports = BaseApp
