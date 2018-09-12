@@ -60,7 +60,7 @@ APPLY_CMD_CONFIG = (settings, type) ->
 
 LOAD_CONFIG = (name, helpers, ctx) ->
   {resource, deploy-config} = helpers
-
+  {argv} = global
 
   # Load configuration from $WORK_DIR/config/xxx.json, or .ls
   #
@@ -202,6 +202,20 @@ class AppCommandSock extends CommandSocketConnection
     return WARN "already shutdowning ..." if app.shutdowning
     (err) <- app.shutdown \CTRL_SHUTDOWN
     return process.exit 0
+
+  process_logger: (cmd, ...args) ->
+    {c} = self = @
+    {LOG} = global
+    if cmd is \list
+      names = LOG.get-logger-names!
+      c.write JSON.stringify names
+      c.end!
+    else if cmd is \set-verbose
+      [value, name] = args
+      v = no
+      v = yes unless value? and value is \true
+      return LOG.set-logger-verbose name, value
+
 
 
 class BaseApp

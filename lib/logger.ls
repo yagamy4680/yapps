@@ -49,6 +49,7 @@ class Logger
     @name = name = if base-name? and base-name != module-name then "#{module-name}::#{base-name}" else "#{module-name}"
     @driver = new ConsoleDriver manager, name, precise-timestamp
 
+  set-verbose: (@verbose) -> return
   debug: -> return @driver.debug.apply @driver, arguments if @verbose
   info : -> return @driver.info.apply  @driver, arguments
   warn : -> return @driver.warn.apply  @driver, arguments
@@ -126,6 +127,15 @@ class LoggerManager
     {logger-map} = self = @
     xs = [ k for k, v of logger-map ]
     return xs
+
+  set-logger-verbose: (name=null, verbose=no) ->
+    {logger-map, loggers} = self = @
+    # console.log "set-logger-verbose(#{name}, #{verbose})"
+    if name?
+      logger = logger-map[name]
+      logger.set-verbose verbose if logger?
+    else
+      [ (l.set-verbose verbose) for l in loggers ]
 
 
 module.exports = exports =
