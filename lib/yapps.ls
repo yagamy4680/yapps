@@ -1,7 +1,7 @@
 require \source-map-support .install!
 require \yap-require-hook .install!
 require \./helpers/gm
-logger = require \yap-simple-logger
+logger = require \./logger
 inner = require \./inner
 
 module.exports = exports =
