@@ -45,18 +45,18 @@ class ConsoleDriver
 
 
 class Logger
-  (@manager, @module-name, @base-name, precise-timestamp) ->
+  (@manager, @module-name, @base-name, @verbose=no, precise-timestamp=no) ->
     @name = name = if base-name? and base-name != module-name then "#{module-name}::#{base-name}" else "#{module-name}"
     @driver = new ConsoleDriver manager, name, precise-timestamp
 
-  debug: -> return @driver.debug.apply @driver, arguments unless global.argv?.v? and not global.argv.v
+  debug: -> return @driver.debug.apply @driver, arguments if @verbose
   info : -> return @driver.info.apply  @driver, arguments
   warn : -> return @driver.warn.apply  @driver, arguments
   error: -> return @driver.error.apply @driver, arguments
 
 
 class LoggerManager
-  (@app-filename, yap-filename) ->
+  (@app-filename, @yap-filename, @verbose=no) ->
     @app-dirname = path.dirname app-filename
     tokens = yap-filename.split path.sep
     tokens.pop!
@@ -109,10 +109,9 @@ class LoggerManager
         return name: tokens[2], basename: base-name
 
   create-logger: (filename) ->
-    {loggers, logger-map, precise-timestamp} = self = @
+    {loggers, logger-map, precise-timestamp, verbose} = self = @
     {name, basename} = self.parse-filename filename
-    console.error "#{filename.yellow} => #{name.green} / #{basename}"
-    logger = new Logger self, name, basename, precise-timestamp
+    logger = new Logger self, name, basename, verbose, precise-timestamp
     logger-name = logger.name
     loggers.push logger
     logger-map[logger-name] = logger
@@ -130,8 +129,8 @@ class LoggerManager
 
 
 module.exports = exports =
-  init: (app-filename, yap-filename) ->
-    module.manager = global.LOG = new LoggerManager app-filename, yap-filename
+  init: (app-filename, yap-filename, verbose) ->
+    module.manager = global.LOG = new LoggerManager app-filename, yap-filename, verbose
     return
 
 global.get-logger = (filename) -> return module.manager.create-logger filename
