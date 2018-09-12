@@ -2,6 +2,7 @@
 # Simple Logger
 #
 require! <[path]>
+require! <[colors moment]>
 
 parse-filename = (filename) ->
   {app-dirname, app-filename, y-module-dir} = module
@@ -52,7 +53,7 @@ class Driver
 class ConsoleDriver extends Driver
   (@module-name, @base-name) ->
     @precise = process.env[\LOGGER_PRECISE_TIMESTAMP] is \true
-    @timefmt = if @precise then 'MM/DD HH:mm:ss:SSS' else 'YYYY/MM/DD HH:mm:ss'
+    @timefmt = if @precise then 'MM/DD HH:mm:ss.SSS' else 'MM/DD HH:mm:ss'
     return super module-name, base-name
 
   format-name: ->
@@ -65,7 +66,7 @@ class ConsoleDriver extends Driver
 
   log: (lv, err, message) ->
     {timefmt} = self = @
-    {levels, moment} = module
+    {levels} = module
     name = @.format-name!
     msg = if message? then message else err
     level = levels[lv]
@@ -108,11 +109,7 @@ module.driver-class = ConsoleDriver
 
 
 module.exports = exports =
-  init: (app-filename, yap-filename, moment=null, colors=null) ->
-    colors = require \colors unless colors?
-    moment = require \moment unless moment?
-    module.colors = colors
-    module.moment = moment
+  init: (app-filename, yap-filename) ->
     module.levels =
       info : {string: 'INFO'.green }
       debug: {string: 'DBG '.blue  }
