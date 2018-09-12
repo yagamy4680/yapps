@@ -4,30 +4,29 @@
 require! <[path]>
 require! <[colors moment]>
 
-
 const PADDINGS = [""] ++ [ ([ ' ' for y from 1 to x ]).join '' for x from 1 to 28 ]
+
+const LEVELS =
+  info : {string: 'INFO'.green }
+  debug: {string: 'DBG '.blue  }
+  error: {string: 'ERR '.red   }
+  warn : {string: 'WARN'.yellow}
 
 
 class ConsoleDriver
-  (@manager, @module-name, @base-name) ->
-    @precise = process.env[\YAPPS_LOGGER_PRECISE_TIMESTAMP] is \true
-    @timefmt = if @precise then 'MM/DD HH:mm:ss.SSS' else 'MM/DD HH:mm:ss'
-
-  format-name: ->
-    {module-name, base-name} = @
-    name = if base-name? and base-name != module-name then "#{module-name}::#{base-name}" else "#{module-name}"
+  (@manager, @name, precise) ->
+    @timefmt = 'MM/DD HH:mm:ss'
+    @timefmt = 'MM/DD HH:mm:ss.SSS' if precise? and precise
     len = name.length
     padding = if len <= 28 then PADDINGS[28 - len] else ""
-    return "#{name}#{padding}"
+    @formatted-name = "#{name}#{padding}"
 
   log: (lv, err, message) ->
-    {manager, timefmt} = self = @
-    {levels} = manager
-    name = @.format-name!
+    {manager, timefmt, formatted-name} = self = @
     msg = if message? then message else err
-    level = levels[lv]
+    level = LEVELS[lv]
     now = moment! .format timefmt
-    prefix = "#{now.gray} #{name} [#{level.string}]"
+    prefix = "#{now.gray} #{formatted-name} [#{level.string}]"
     if message?
       if err? and err.stack?
         console.error "#{prefix} #{err.stack}"
@@ -46,8 +45,9 @@ class ConsoleDriver
 
 
 class Logger
-  (@manager, @module-name, @base-name) ->
-    @driver = new ConsoleDriver manager, module-name, base-name
+  (@manager, @module-name, @base-name, precise-timestamp) ->
+    @name = name = if base-name? and base-name != module-name then "#{module-name}::#{base-name}" else "#{module-name}"
+    @driver = new ConsoleDriver manager, name, precise-timestamp
 
   debug: -> return @driver.debug.apply @driver, arguments unless global.argv?.v? and not global.argv.v
   info : -> return @driver.info.apply  @driver, arguments
@@ -63,14 +63,10 @@ class LoggerManager
     tokens.pop!
     tokens.pop!
     @y-module-dir = ymd = tokens.join path.sep
-    console.error "y-module-dir = #{ymd}" if process.env['YAPPS_LOGGER_VERBOSE'] is \true
+    console.error "[logger] y-module-dir = #{ymd}"
+    @precise-timestamp = process.env[\YAPPS_LOGGER_PRECISE_TIMESTAMP] is \true
     @loggers = []
     @logger-map = {}
-    @levels =
-      info : {string: 'INFO'.green }
-      debug: {string: 'DBG '.blue  }
-      error: {string: 'ERR '.red   }
-      warn : {string: 'WARN'.yellow}
 
   parse-filename: (filename) ->
     {app-dirname, app-filename, y-module-dir} = self = @
@@ -113,16 +109,24 @@ class LoggerManager
         return name: tokens[2], basename: base-name
 
   create-logger: (filename) ->
-    {loggers} = self = @
+    {loggers, logger-map, precise-timestamp} = self = @
     {name, basename} = self.parse-filename filename
-    logger = new Logger self, name, basename
+    console.error "#{filename.yellow} => #{name.green} / #{basename}"
+    logger = new Logger self, name, basename, precise-timestamp
+    logger-name = logger.name
     loggers.push logger
+    logger-map[logger-name] = logger
     get = (logger, level) -> return -> logger[level].apply logger, arguments
     DBG = get logger, \debug
     ERR = get logger, \error
     WARN = get logger, \warn
     INFO = get logger, \info
     return {DBG, ERR, WARN, INFO}
+
+  get-logger-names: ->
+    {logger-map} = self = @
+    xs = [ k for k, v of logger-map ]
+    return xs
 
 
 module.exports = exports =
