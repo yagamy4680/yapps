@@ -2,9 +2,27 @@ require \source-map-support .install!
 require \yap-require-hook .install!
 require \./helpers/gm
 
+
 PRINT_HELP = (opt) ->
   opt.showHelp!
   process.exit 0
+
+
+PRINT_ARGV = (argv) ->
+  console.error "[yapps] argv => #{JSON.stringify argv}"
+
+
+PRINT_YAPPS_ENVS = ->
+  f = (name) -> return name.startsWith 'YAPPS_'
+  xs = [ k for k, v of process.env ]
+  xs = xs.filter f
+  return unless xs.length > 0
+  console.error "[yapps] environment variables:"
+  xs.sort!
+  for x in xs
+    console.error "\t#{x.gray}: #{process.env[x].yellow}"
+  console.error ""
+
 
 module.exports = exports =
   init: (app_filename) ->
@@ -38,12 +56,15 @@ module.exports = exports =
       .alias    \o, 'config_object'
       .describe \o, 'overwrite a configuration with json object string, e.g. -o "system.influxServer.connections.ifdb999={"url":"tcp://192.168.1.110:6020","enabled":false}"'
       .boolean <[h v q]>
-    {verbose, help} = argv = global.argv = opt.argv
+    {verbose, help} = argv = module.argv = opt.argv
     PRINT_HELP opt if help
+    PRINT_YAPPS_ENVS!
+    PRINT_ARGV argv
     logger = require \./logger
     logger.init app_filename, __filename, verbose
     inner = module.inner = require \./inner
     inner.init app_filename
 
   create-app: (type, opts) ->
-    return module.inner.create-app type, opts
+    {argv} = module
+    return module.inner.create-app argv, type, opts

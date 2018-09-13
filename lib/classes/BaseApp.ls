@@ -58,14 +58,13 @@ APPLY_CMD_CONFIG = (settings, type) ->
     INFO "applied #{prop} = #{xs}"
 
 
-LOAD_CONFIG = (name, helpers, ctx) ->
+LOAD_CONFIG = (name, argv, helpers, ctx) ->
   {resource, deploy-config} = helpers
-  {argv} = global
 
   # Load configuration from $WORK_DIR/config/xxx.json, or .ls
   #
-  {json, text, source} = resource.loadConfig argv.config
-  return ERR_EXIT "failed to load #{argv.config}", null, 1 unless json?
+  {json, text, source} = resource.loadConfig argv.c
+  return ERR_EXIT "failed to load #{argv.c}", null, 1 unless json?
   global.config = json
   APPLY_CMD_CONFIG argv.o, "object"
   APPLY_CMD_CONFIG argv.s, "string"
@@ -219,7 +218,7 @@ class AppCommandSock extends CommandSocketConnection
 
 
 class BaseApp
-  (@name, @opts, @helpers) ->
+  (@name, @opts, @helpers, @argv) ->
     @context = new AppContext opts, helpers
     @plugins = []
     @plugin_instances = []
@@ -227,14 +226,14 @@ class BaseApp
     @shutdowning = no
 
   load-configs: (done) ->
-    {name, helpers} = self = @
+    {name, helpers, argv} = self = @
     {resource} = helpers
     DUMPING = process.env.YAPPS_DUMP_LOADED_CONFIG is \true
     APP_NAME = app-name = name
     APP_DIR = resource.getAppDir!
     WORK_DIR = resource.getWorkDir!
     try
-      @configs = configs = LOAD_CONFIG name, helpers, {APP_NAME, APP_DIR, WORK_DIR}
+      @configs = configs = LOAD_CONFIG name, argv, helpers, {APP_NAME, APP_DIR, WORK_DIR}
       @ctrl-opts = configs[\sock][\servers][\ctrl]
       delete configs[\sock][\servers][\ctrl]
       @package-json = package-json = require "#{APP_DIR}/package.json"

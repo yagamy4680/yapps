@@ -7,7 +7,7 @@ HOOK = (err) ->
   return err
 
 class WebApp extends BaseApp
-  (@name, @opts, @helpers) ->
+  (@name, @opts, @helpers, @argv) ->
     super ...
     INFO "web-app initiates"
     this.add-plugin require './web'

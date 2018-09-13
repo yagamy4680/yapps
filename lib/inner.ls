@@ -11,13 +11,14 @@ FIND_NAME = (filename) ->
   return tokens[tokens.length - 2]
 
 
-CREATE_APPLICATION = (type, opts) ->
+CREATE_APPLICATION = (type, opts, argv) ->
   {name, HELPERS} = module
   CLAZZ = if \base is type then require \./classes/BaseApp else require \./classes/WebApp
   return ERR_EXIT "the class[#{type}] of application is empty-ized" unless CLAZZ?
   try
     DBG "create #{type} with options: #{(JSON.stringify opts).green}"
-    return new CLAZZ name, opts, HELPERS
+    DBG "create #{type} with arguments: #{(JSON.stringify argv).green}"
+    return new CLAZZ name, opts, HELPERS, argv
   catch error
     return ERR_EXIT error, "failed to create application #{type.yellow}"
 
@@ -37,7 +38,7 @@ module.exports = exports =
     INFO "application name: #{name.yellow}"
     global.add-bundled-module {yapps_utils}
 
-  create-app: (type, opts) ->
+  create-app: (argv, type, opts) ->
     {signal} = module.HELPERS
     app_type = \base
     app_opts = {}
@@ -47,4 +48,4 @@ module.exports = exports =
         app_opts = opts
       else if \object is typeof type
         app_opts = type
-    return signal CREATE_APPLICATION app_type, app_opts
+    return signal CREATE_APPLICATION app_type, app_opts, argv
