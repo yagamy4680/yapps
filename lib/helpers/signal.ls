@@ -106,6 +106,9 @@
 # #define EX_CONFIG       78  /* configuration error */
 #
 #
+# [Windows Exit Codes]
+# https://www.symantec.com/connect/articles/windows-system-error-codes-exit-codes-description
+#
 # 137, `kill -KILL [PID]` => SIGKILL
 # 143, `kill [PID]`       => SIGTERM
 # 140, `kill -USR2 [PID]` => SIGUSR2
@@ -123,6 +126,7 @@
 #
 # => Reload (similar to restart, but shall be triggered by a command sent via unixsock)
 #     send SIGUSR2
+#     if exit-code is 140, then continue infinite-startup-loop
 #
 # kill -USR1 `cat /var/run/nginx.pid`
 #
@@ -156,11 +160,13 @@ class SuicideTimer
 
 
 SIGNAL_HANDLER_CURRYING = (evt, dummy) -->
-  {app, shutdowning, suicide_timeout} = module
-  return WARN "receive #{evt.red} event but already shutdowning ..." if shutdowning
-  module.shutdowning = yes
+  {app, suicide_timeout} = module
+  WARN "receive #{evt.red} event"
+  prefix = "signal[#{evt.red}]"
+  return WARN "#{prefix}: already shutdowning ..." if app.shutdowning
   module.timer = new SuicideTimer evt, suicide_timeout
-  WARN "receive #{evt.red} event, peacefully shutdown ..."
+  WARN "#{prefix}: yapps doesn't support config-reloading now, let's restart directly" if evt is \SIGUSR2
+  INFO "#{prefix}: start peaceful shutdown ..."
   code = SIGNALS[evt]
   try
     (err) <- app.shutdown evt
@@ -173,7 +179,6 @@ SIGNAL_HANDLER_CURRYING = (evt, dummy) -->
 
 module.exports = exports = (app) ->
   module.app = app
-  module.shutdowning = no
   module.suicide_timeout = SUICIDE_TIMEOUT
   signals = [ k for k, v of SIGNALS ]
   for s in signals
