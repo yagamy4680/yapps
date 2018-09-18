@@ -10,6 +10,10 @@ APPLY_CONDITIONALLY = (func, data, done) ->
   return done data unless func?
   return func data, done
 
+ERR_DONE = (done, err, message) ->
+    ERR err, message
+    return done!
+
 const DEFAULT_OPTS =
   verbose: no
   intervals:
@@ -74,7 +78,7 @@ class DataJob
     self.consuming = yes
     (load-err, data) <- self.load
     self.consuming = no
-    return done load-err if load-err?
+    return ERR_DONE done, load-err, "#{prefix}: failed to load from disk (or deserialize) => drop from data queue." if load-err?
     start1 = (new Date!) - 0
     self.consuming = yes
     (err) <- consumer name, format, timestamp, data, retries
