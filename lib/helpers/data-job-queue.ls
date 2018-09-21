@@ -1,4 +1,4 @@
-require! <[path]>
+require! <[path async]>
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_sortBy, lodash_findIndex, lodash_padStart, async} = global.get-bundled-modules!
@@ -13,6 +13,15 @@ APPLY_CONDITIONALLY = (func, data, done) ->
 ERR_DONE = (done, err, message) ->
     ERR err, message
     return done!
+
+DONE_WITH_SELF = (self, done=null, err=null, message=null) ->
+  ERR err, message if err? and message?
+  done! if done? and \function is typeof done
+  return self
+
+FINALIZE_DATA_JOB = (job, done) ->
+  return job.store done
+
 
 const DEFAULT_OPTS =
   verbose: no
@@ -31,7 +40,6 @@ const DEFAULT_OPTS =
     read: null
     remove: null
     list: null
-
 
 class DataJob
   (@parent, @timestamp=null, @data=null, @serialized=no) ->
@@ -99,14 +107,14 @@ class DataJob
     DBG message if @parent.verbose
     return @
 
-  store: ->
+  store: (done=null) ->
     {parent, prefix, timestamp, serialized, data} = self = @
-    return self if serialized
+    return DONE_WITH_SELF self, done if serialized
     {name, format, opts} = parent
     self.writing = yes
     APPLY_CONDITIONALLY opts.job.serializer, data, (s-err, buffer) ->
       self.writing = no
-      return ERR s-err, "#{prefix}: serialize data but error" if s-err?
+      return DONE_WITH_SELF self, done, s-err, "#{prefix}: serialize data but error" if s-err?
       start = (new Date!) - 0
       self.writing = yes
       parent.backend_write name, format, timestamp, buffer, (write-err) ->
@@ -114,8 +122,8 @@ class DataJob
         duration = "#{(new Date!) - start}"
         self.dbg "#{prefix}: store #{buffer.length} bytes with #{duration.cyan}ms"
         self.serialized = yes
-        return unless write-err?
-        return ERR write-err, "#{prefix}: store #{buffer.length} bytes but err"
+        return DONE_WITH_SELF self, done, write-err, "#{prefix}: store #{buffer.length} bytes but err" if write-err?
+        return DONE_WITH_SELF self, done
     return self
 
   cleanup: ->
@@ -187,7 +195,6 @@ class DataJobQueue
     ys = [ (x.get-job-state!) for x in xs ]
     [ console.log "\t#{y}" for y in ys ]
 
-
   init: (done) ->
     {prefix, name, opts} = self = @
     {consumer, backend, job, intervals} = opts
@@ -214,6 +221,10 @@ class DataJobQueue
     self.check-timer = setInterval t, self.check-interval
     INFO "#{prefix}: initiate a regular check timer with #{self.check-interval}ms"
     return done!
+
+  fini: (done) ->
+    {queue} = self = @
+    return async.eachSeries queue, FINALIZE_DATA_JOB, done
 
   consume-job: ->
     {prefix, name, format, queue, consumer, consuming, verbose} = self = @
@@ -264,6 +275,9 @@ class DataJobQueue
     @.check-consumer-timeout interval
     @.check-persistence interval
     return
+
+  get-size: ->
+    return @queue.length
 
 
 module.exports = exports = DataJobQueue
