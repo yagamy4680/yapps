@@ -6,9 +6,23 @@ ERR_EXIT = (err, message) ->
   return process.exit 1
 
 
-FIND_NAME = (filename) ->
-  tokens = filename.split path.sep
-  return tokens[tokens.length - 2]
+FIND_NAME_BY_INDEX_JS = ->
+  return null unless global.yap-context?
+  index-js-filepath = global.yap-context['__filename']
+  return null unless index-js-filepath?
+  tokens = index-js-filepath.split path.sep
+  name = tokens[tokens.length - 2]
+  DBG "detect application-name #{name.yellow} (from the path of index.js => #{index-js-filepath.cyan})"
+  return name
+
+
+FIND_NAME = (app-ls-filepath) ->
+  name = FIND_NAME_BY_INDEX_JS!
+  return name if name?
+  tokens = app-ls-filepath.split path.sep
+  name = tokens[tokens.length - 2]
+  DBG "detect application-name #{name.yellow} (from the path of app.ls => #{app-ls-filepath.cyan})"
+  return name
 
 
 CREATE_APPLICATION = (type, opts, argv) ->
@@ -25,7 +39,7 @@ CREATE_APPLICATION = (type, opts, argv) ->
 
 module.exports = exports =
 
-  init: (app_filename) ->
+  init: (app-ls-filepath) ->
     async-executer = require \./helpers/async-executer
     deploy-config  = require \./helpers/deploy-config
     resource       = require \./helpers/resource
@@ -34,7 +48,7 @@ module.exports = exports =
     signal         = require \./helpers/signal
     yapps_utils    = require \./helpers/utils
     module.HELPERS = {async-executer, deploy-config, resource, system-uptime, timer, signal}
-    module.name    = name = FIND_NAME app_filename
+    module.name    = name = FIND_NAME app-ls-filepath
     INFO "application name: #{name.yellow}"
     global.add-bundled-module {yapps_utils}
 
