@@ -164,7 +164,7 @@ LOAD_MODULE = (fullpath, done) ->
 
 
 class AppContext
-  (@opts, helpers) ->
+  (@app, @opts, helpers) ->
     @system-uptime = new helpers.system-uptime {}
     @server = new eventemitter2.EventEmitter2 do
       wildcard: yes
@@ -181,6 +181,7 @@ class AppContext
   emit: -> return @server.emit.apply @server, arguments
   add-listener: -> return @server.add-listener.apply @server, arguments
   remove-listener: -> return @server.remove-listener.apply @server, arguments
+  restart: (evt) -> return @app.restart evt
 
 
 class AppCommandSock extends CommandSocketConnection
@@ -192,8 +193,7 @@ class AppCommandSock extends CommandSocketConnection
     {prefix, app} = self = @
     INFO "#{prefix}: receive restart command!!"
     return WARN "already shutdowning ..." if app.shutdowning
-    (err) <- app.shutdown \CTRL_RESTART
-    return process.exit 96  # refer to definitions in `signal.ls`
+    return app.restart \CTRL_RESTART
 
   process_shutdown: ->
     {prefix, app} = self = @
@@ -215,11 +215,29 @@ class AppCommandSock extends CommandSocketConnection
       v = yes unless value? and value is \true
       return LOG.set-logger-verbose name, value
 
+  # process_xxx
+  #
+  # [TODO] more unixsock control commands for yapps.
+  #
+  # 1. Better memory analysis.
+  #    https://github.com/blueconic/node-oom-heapdump
+  #    Create a V8 heap snapshot right before an "Out of Memory" error occurs, or create a heap snapshot or CPU profile on request.
+  #
+  #     https://tech.residebrokerage.com/debugging-node-js-memory-problems-d450787d9253
+  #     https://marmelab.com/blog/2018/04/03/how-to-track-and-fix-memory-leak-with-nodejs.html
+  #     https://www.valentinog.com/blog/memory-usage-node-js/
+  #
+  #     https://www.npmjs.com/package/memwatch-next
+  #
+  # 2. Run a given code with vm2/sandbox, to quickly find variable value when nodejs is still running
+  #
+  #
+
 
 
 class BaseApp
   (@name, @opts, @helpers, @argv) ->
-    @context = new AppContext opts, helpers
+    @context = new AppContext @, opts, helpers
     @plugins = []
     @plugin_instances = []
     @.add-plugin require './sock'
@@ -362,6 +380,13 @@ class BaseApp
     WARN err, "failed to finalized all plugins" if err?
     INFO "#{name.yellow} finalized."
     return done err
+
+  restart: (evt) ->
+    self = @
+    (err) <- self.shutdown evt
+    ERR err, "peaceful restart for signal #{evt.red} event but known error" if err?
+    return process.exit 96  # refer to definitions in `signal.ls`
+
 
 
 module.exports = exports = BaseApp
