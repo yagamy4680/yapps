@@ -18,13 +18,13 @@
 
 # package.json
 #
-name: \yap-require-hook
+name: \yapps
 
 author:
   name: ['Yagamy']
   email: 'yagamy@gmail.com'
 
-description: 'a hook to __require__'
+description: "the app framework for nodejs applications on embedded linux system"
 
 version: \0.0.1
 
@@ -35,13 +35,15 @@ repository:
 main: \index
 
 engines:
-  node: \0.10.x
+  node: \8.x
   npm: \1.4.x
 
 dependencies:
-  async: \*
-  colors: \*
-
+  async: \^2.6.1
+  colors: \^1.3.0
+  lodash: \^4.17.10
+  mkdirp: \^0.5.1
+  moment: \*
 
 devDependencies: {}
 
