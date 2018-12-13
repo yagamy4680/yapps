@@ -8,7 +8,7 @@
 #
 #
 require! <[fs path colors]>
-{DBG} = global.get-logger __filename
+{DBG, ERR} = global.get-logger __filename
 
 settings =
   program_name: null
@@ -23,36 +23,37 @@ CHECK = (p) ->
   try
     dirs = fs.readdirSync config_dir
     if not fs.existsSync log_dir then fs.mkdirSync log_dir
-    settings.work_dir = p
+    settings.work_dir = path.resolve p
     settings.config_dir = config_dir
-    DBG "use #{(path.resolve p).cyan} as work_dir"
+    DBG "use #{settings.work_dir.cyan} as work_dir"
     DBG "use #{settings.app_dir.cyan} as app_dir"
   catch error
     DBG "checking #{path.resolve p} but failed"
 
+argv = [ x for x in process.argv ]
+[a1, a2] = argv
+a1 = path.basename a1 if a1?
+a2 = path.basename a2 if a2?
+entry = if a1? and a2? and a1 is \node and a2 is \lsc then argv[2] else argv[1]
 
 # Setup the default program name.
 #
-if process.argv[1]?
-  settings.program_name = path.basename process.argv[1]
-else
-  settings.program_name = "unknown"
+settings.program_name = \unknown
+settings.program_name = path.basename entry if entry?
 
 # Setup the default app directory.
 #
-if process.argv[1]?
-  settings.app_dir = path.dirname process.argv[1]
-else
-  settings.app_dir = process.cwd!
+settings.app_dir = process.cwd!
+settings.app_dir = path.resolve path.dirname entry if entry?
 
 
 # 1.Check process.env['WORK_DIR'] can be used as work_dir
 #
-if process.env['WORK_DIR']? then CHECK process.env['WORK_DIR']
+CHECK process.env['WORK_DIR'] if process.env['WORK_DIR']?
 
 # 2. Check current dir.
 #
-if not settings.work_dir then CHECK path.resolve "."
+CHECK path.resolve "." unless settings.work_dir?
 
 # 3. Check process.argv[1] can be used as work_dir
 #
@@ -62,12 +63,12 @@ if not settings.work_dir then CHECK path.resolve "."
 #
 #   ["node","/Users/yagamy/Works/workspaces/t2t/yapps-tt/tests/test02/index.js"]
 #
-if not settings.work_dir and process.argv[1]? then CHECK path.dirname process.argv[1]
+CHECK path.dirname entry if not settings.work_dir and entry?
 
 # If there is still no work_dir available to use, then terminate
 # the current process immediately with error exit code.
 #
-if not settings.work_dir
+if not settings.work_dir?
   ERR "failed to find any work directory."
   if not process.env.VERBOSE? then ERR "please re-run the program with environment variable VERBOSE=true to get further verbose messages..."
   process.exit 1
@@ -82,7 +83,6 @@ LOAD_CONFIG = (p, callback) ->
     callback null, config
   catch error
     DBG "failed to load #{p.path} due to error: #{error}"
-
   return found
 
 
