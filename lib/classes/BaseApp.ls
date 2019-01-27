@@ -215,6 +215,15 @@ class AppCommandSock extends CommandSocketConnection
       v = yes unless value? and value is \true
       return LOG.set-logger-verbose name, value
 
+  fallback: (cmd, args) ->
+    return @.process_plugin_ctrl args if cmd in <[plugin service]>
+    return WARN "unknown command to process: #{cmd.yellow} => #{JSON.stringify args}"
+
+  process_plugin_ctrl: (args) ->
+    return WARN "less than 2 arguments for service/plugin control command" unless args.length >= 2
+    name = args.shift!
+    return @app.process-plugin-ctrl-command name, args
+
   # process_xxx
   #
   # [TODO] more unixsock control commands for yapps.
@@ -239,6 +248,7 @@ class BaseApp
   (@name, @opts, @helpers, @argv) ->
     @context = new AppContext @, opts, helpers
     @plugins = []
+    @plugin_map = {}
     @plugin_instances = []
     @.add-plugin require './sock'
     @shutdowning = no
@@ -295,16 +305,18 @@ class BaseApp
     return async.eachSeries tokens, f, done
 
   attach-plugins: (done) ->
-    {context, name, plugin_instances, plugins, configs, helpers} = self = @
+    {context, name, plugin_instances, plugins, plugin_map, configs, helpers} = self = @
     app-name = name
     app-package-json = @package-json
-    default-settings = {app-name, app-package-json}
+    app-ctrl-sock = @ctrl-opts.uri
+    default-settings = {app-name, app-package-json, app-ctrl-sock}
 
     for p in plugin_instances
       {basename} = yap-require-hook.get-name p
       p-name = basename
       px = instance: p, name: p-name
       plugins.push px
+      plugin_map[p-name] = px
 
       app-plugin-emitter =
         app: context
@@ -328,6 +340,14 @@ class BaseApp
       catch error
         return ERR_EXIT error, "failed to attach plugin #{p-name.cyan}"
     return done!
+
+  process-plugin-ctrl-command: (name, args) ->
+    {context, plugin_map} = self = @
+    p = plugin_map[name]
+    return WARN "no such service/plugin to process ctrl command: #{name.red}" unless p?
+    {ctrl} = p.instance
+    return WARN "the service/plugin #{name.red} does not support control command" unless ctrl? and \function is typeof ctrl
+    return ctrl.apply context, args
 
   init-plugins: (done) ->
     {context, plugins, name} = @

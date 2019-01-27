@@ -193,6 +193,7 @@ class WebServer
     require! \multer
     return WARN "multer is empty-ized" unless multer?
     @helpers.upload = multer dest: upload-path
+    @helpers.multer = multer
     return INFO "add multer helper"
 
 

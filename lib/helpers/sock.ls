@@ -14,13 +14,13 @@ class SocketConnection
     @remote = remote = if remote-address? and remote-port? then "#{remote-address}:#{remote-port}" else "localhost"
     @prefix = prefix = "sock[#{name.cyan}][#{remote.magenta}]"
     remote-family = "unknown" unless remote-family?
-    INFO "#{prefix}: incoming-connection => #{remote-family.yellow}"
+    DBG "#{prefix}: incoming-connection => #{remote-family.yellow}"
     c.on \end, -> return self.at-end!
     c.on \error, (err) -> return self.at-error err
 
   finalize: ->
     {server, prefix, c} = self = @
-    INFO "#{prefix}: disconnected"
+    DBG "#{prefix}: disconnected"
     c.removeAllListeners \error
     c.removeAllListeners \data
     c.removeAllListeners \end
@@ -63,8 +63,11 @@ class CommandSocketConnection extends SocketConnection
     cmd.trim!
     name = "process_#{cmd}"
     func = self[name]
-    return INFO "#{prefix}: #{name} function is unavailable to process command" unless func?
-    return func.apply self, args
+    return func.apply self, args if func?
+    return self.fallback cmd, args
+
+  fallback: (cmd, args) ->
+    return
 
 
 class SocketServer
@@ -130,7 +133,7 @@ class SocketServer
     {connections, prefix} = self = @
     {remote} = s
     idx = lodash_findIndex connections, s
-    INFO "#{prefix}: disconnected, and remove #{remote.magenta} from slots[#{idx}]"
+    DBG "#{prefix}: disconnected, and remove #{remote.magenta} from slots[#{idx}]"
     return connections.splice idx, 1 if idx?
 
   write-line-tokens: (tokens=[], datetime=no, delimiter=DEFAULT_DELIMITER) ->
