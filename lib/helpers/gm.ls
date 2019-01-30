@@ -1,5 +1,5 @@
 require! <[path fs]>
-require! <[colors moment mkdirp prettyjson semver]>
+require! <[colors moment mkdirp prettyjson semver handlebars]>
 
 class GlobalModule
   (@opts) ->
@@ -91,7 +91,7 @@ global.add-bundled-module {
   lodash_merge, lodash_find, lodash_findIndex, lodash_sum, lodash_sortBy,
   lodash_padStart, lodash_padEnd, lodash_camelCase
   yaml_loader, yaml_safeLoad,
-  mkdirp, moment, prettyjson
+  mkdirp, moment, prettyjson, handlebars
   uuid_v1, uuid_v4,
   create_module_helper
 }

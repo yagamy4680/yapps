@@ -62,7 +62,7 @@ module.exports = exports =
   missing_field:
     status: 400
     code: -3004
-    message: "missing field {{field}}"
+    message: "missing field {{err}}"
 
   general_server_error:
     status: 500
