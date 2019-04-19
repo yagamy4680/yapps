@@ -265,8 +265,8 @@ class BaseApp
       @ctrl-opts = configs[\sock][\servers][\ctrl]
       delete configs[\sock][\servers][\ctrl]
       @package-json = package-json = require "#{APP_DIR}/package.json"
-      PRINT_PRETTY_JSON "app-configs", configs unless DUMPING
-      PRINT_PRETTY_JSON "app-package-json", package-json unless DUMPING
+      PRINT_PRETTY_JSON "app-configs", configs if DUMPING
+      PRINT_PRETTY_JSON "app-package-json", package-json if DUMPING
       return done!
     catch error
       return done error
