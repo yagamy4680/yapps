@@ -6,6 +6,7 @@
 #
 INITIATION = (req, res, next) ->
   req.web_context = {}
+  res.web_context = {json_wrapped: no}
   next!
 
 
@@ -43,4 +44,39 @@ GRACEFUL_SHUTDOWN = (req, res, next) ->
   return
 
 
-module.exports = exports = {INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN}
+CUSTOM_FIELD = (json, headers, field) ->
+  x = headers["x-yapps-webapi-field-#{field}"]
+  return unless x?
+  return delete json[field] if x is \none
+  json[field] = x
+  return
+
+
+WRAP_JSON_RESPONSE = (func) ->
+  modify-response = (json, opts) ->
+    {headers} = opts
+    CUSTOM_FIELD json, headers, "url"     # X-YAPPS-WEBAPI-FIELD-URL
+    CUSTOM_FIELD json, headers, "error"   # X-YAPPS-WEBAPI-FIELD-ERROR
+    CUSTOM_FIELD json, headers, "message" # X-YAPPS-WEBAPI-FIELD-MESSAGE
+    CUSTOM_FIELD json, headers, "code"    # X-YAPPS-WEBAPI-FIELD-CODE
+    return json
+  return (json) ->
+    {headers, query} = this.req
+    params = {headers, query}
+    return func modify-response json, params if arguments.length is 1
+    return func json unless arguments.length is 2
+    return func arguments[1], modify-response json, params if \number is typeof arguments[1]
+    return func json, modify-response arguments[1], params
+
+
+WEBAPI_HOOK = (req, res, next) ->
+  {web_context} = res
+  return next! if web_context.json_wrapped? and web_context.json_wrapped
+  web_context.json_wrapped = yes
+  res.json = WRAP_JSON_RESPONSE res.json.bind res
+  return next!
+
+
+module.exports = exports = {
+  INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN, WEBAPI_HOOK
+}

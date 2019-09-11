@@ -1,6 +1,6 @@
 require! <[express body-parser handlebars fs http colors]>
 ERROR_RESPONSES = require \./web-errors
-{INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN} = require \./web-middlewares
+{INITIATION, DETECT_CLIENT_IP, GRACEFUL_SHUTDOWN, WEBAPI_HOOK} = require \./web-middlewares
 
 {DBG, ERR, WARN, INFO} = global.get-logger __filename
 {lodash_merge, lodash_sum, yapps_utils} = global.get-bundled-modules!
@@ -295,7 +295,7 @@ class WebServer
       uri = "#{p}/#{name}"
       INFO "api: add #{uri.yellow}"
     a.use "/v#{api}", v
-    web.use "/api", a
+    web.use "/api", WEBAPI_HOOK, a
 
 
   initiate-plugin-websockets: ->
