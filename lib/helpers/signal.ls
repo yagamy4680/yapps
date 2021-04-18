@@ -177,6 +177,24 @@ SIGNAL_HANDLER_CURRYING = (evt, dummy) -->
     return process.exit (code + 192)
 
 
+UNCAUGHT_EXCEPTION_HANDLER = (err, origin) ->
+  {app, suicide_timeout} = module
+  console.dir err
+  evt = "uncaught-exception(#{origin}): #{err.message}"
+  prefix = "uncaught-exception"
+  WARN "receive #{evt.red} event"
+  return WARN "#{prefix}: already shutdowning ..." if app.shutdowning
+  module.timer = new SuicideTimer evt, suicide_timeout
+  INFO "#{prefix}: start peaceful shutdown ..."
+  try
+    (err) <- app.shutdown evt
+    ERR err, "#{prefix}: peaceful shutdown for signal #{evt.red} event but known error" if err?
+    return process.exit 127
+  catch error
+    ERR error, "#{prefix}: peaceful shutdown for signal #{evt.red} event but uncaught error"
+    return process.exit 192
+
+
 module.exports = exports = (app) ->
   module.app = app
   module.suicide_timeout = SUICIDE_TIMEOUT
@@ -185,4 +203,6 @@ module.exports = exports = (app) ->
     listener = SIGNAL_HANDLER_CURRYING s
     process.on s, listener
     DBG "register signal event: #{s.red}"
+  process.on 'uncaughtException', UNCAUGHT_EXCEPTION_HANDLER
+  DBG "register uncaught-exception"
   return app
